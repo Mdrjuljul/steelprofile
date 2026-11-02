@@ -1,0 +1,27 @@
+# Gabarit — dimension commerciale (§3.7)
+#
+# Ce fichier n'est PAS importé (extension .example). Copiez-le sous
+# data/staging/<NOM>.toml, renommez le CSV associé en <NOM>.csv, puis
+# remplacez les valeurs. Ne laissez aucune dimension inventée : une ligne
+# incomplète fait échouer tout l'import.
+
+id = "NOM-SERIE"                  # unique
+title = "Libellé de la gamme"
+shape = "SQUARE"                  # FLAT | ROUND | SQUARE | T_TAPERED | ...
+process = "hot_rolled"
+
+category = "commercial"
+commercial_ref = "PROGRAMME — fabricant, édition, date"
+
+source_id = "IDENTIFIANT-SOURCE"  # unique, jamais réutilisé pour un autre document
+source_name = "Nom de la source"
+source_kind = "manufacturer"      # repository | website | standard | manufacturer | dataset
+source_license = "Conditions exactes (autorisation écrite, achat, etc.)"
+source_license_url = ""
+source_version = ""
+redistribution = "restricted"     # allowed seulement avec autorisation écrite
+source_note = "Comment la table a été obtenue et contrôlée."
+
+[designation]
+pattern = "SQ {a}"
+aliases = ["CARRE{a}"]

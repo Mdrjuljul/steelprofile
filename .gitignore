@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Exports générés
+exports/
+
+# Base de travail et inventaires générés
+data/profiles.db
+data/profiles.db-journal
+data/profiles.db-wal
+data/profiles.db-shm
+data/catalogue_inventory.csv
+data/catalogue_stats.json
+data/catalogue_inventory_redistributable.csv
+
+# Données commerciales locales : jamais redistribuées (§3.7)
+data/staging/*
+!data/staging/README.md
+!data/staging/*.example
+
+# Documents fabricants propriétaires
+data/sources/*.pdf
