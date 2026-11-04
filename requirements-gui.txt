@@ -1,0 +1,5 @@
+# Interface de bureau uniquement.
+#
+# Le moteur (app.geometry) et les exports (app.exports) n'utilisent que la
+# bibliothèque standard de Python ; PySide6 n'est importé que par app.gui.
+PySide6>=6.6

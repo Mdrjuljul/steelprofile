@@ -1,0 +1,610 @@
+# STEEL PROFILE GENERATOR
+## Cahier des charges technique – V1
+
+**Projet :** Générateur local de profilés métalliques normalisés européens  
+**Nom de travail :** SteelProfile  
+**Environnement de développement :** OpenCode  
+**Langage :** Python  
+**Licence cible :** Open Source (MIT ou GPL-3.0)  
+**Fonctionnement :** 100 % local, sans connexion Internet obligatoire.
+
+---
+
+# 1. OBJECTIF DU PROJET
+
+Développer un petit logiciel autonome permettant de rechercher, sélectionner et générer la géométrie exacte des sections de profilés métalliques normalisés européens.
+
+L'utilisateur sélectionne une famille et une référence normalisée. Le logiciel construit automatiquement la géométrie correspondante et permet de l'exporter dans différents formats CAO et 3D.
+
+Exemples :
+- IPE 200
+- HEA 160
+- HEB 200
+- UPN 100
+- UPE 120
+- Cornière L 60 × 60 × 6
+- Cornière L 80 × 60 × 8
+- Profilé T 100 × 100 × 11
+- Tube RHS 100 × 50 × 4
+- Tube SHS 80 × 80 × 5
+- Tube CHS 60,3 × 3,2
+- Plat 50 × 8
+- Rond plein Ø20
+- Carré plein 30 × 30
+
+**Principe fondamental : produire des géométries conformes aux dimensions et aux caractéristiques documentées des profils normalisés.**
+
+Aucune dimension, aucun rayon de congé et aucune épaisseur ne doivent être inventés.
+
+Si une information géométrique manque dans les sources, le logiciel doit le signaler.
+
+# 2. PÉRIMÈTRE FONCTIONNEL
+
+Le logiciel ne doit PAS devenir un logiciel de calcul structurel, de dimensionnement ou de BIM.
+
+Fonctions nécessaires :
+- Consultation d'un catalogue de profilés.
+- Recherche par désignation.
+- Filtrage par famille.
+- Consultation des dimensions.
+- Aperçu de la section.
+- Génération géométrique à la demande.
+- Export dans plusieurs formats.
+- Vérification de la validité géométrique.
+
+Fonctions exclues :
+- Calcul de résistance mécanique.
+- Calcul de charges.
+- Dimensionnement structurel.
+- Assemblages.
+- Bibliothèque de matériaux.
+- Gestion de projets.
+- Modélisation de bâtiments.
+
+La priorité est exclusivement la géométrie des profilés.
+
+# 3. FAMILLES DE PROFILÉS À INTÉGRER
+
+## 3.1 Profilés en I
+
+Normes et séries :
+- IPE
+- IPN
+- IPE A / AA / O / V lorsque les séries sont documentées.
+
+## 3.2 Profilés en H
+
+- HEA
+- HEB
+- HEM
+
+## 3.3 Profilés en U
+
+- UPN
+- UPE
+
+## 3.4 Cornières
+
+Norme EN 10056 :
+- Cornières à ailes égales.
+- Cornières à ailes inégales.
+
+## 3.5 Profilés en T
+
+Norme EN 10055 :
+- Profilés T laminés.
+- Sections documentées par les fabricants lorsque les dimensions ne sont pas couvertes par une série générale.
+
+## 3.6 Tubes et profilés creux
+
+Normes EN 10210 et EN 10219 :
+- SHS : tubes carrés.
+- RHS : tubes rectangulaires.
+- CHS : tubes circulaires.
+
+Distinguer les tubes finis à chaud et les tubes formés à froid. Ne pas leur appliquer les mêmes rayons d'angle par défaut.
+
+## 3.7 Profilés pleins
+
+- Plats : EN 10058.
+- Carrés : EN 10059.
+- Ronds : EN 10060.
+
+Les dimensions commerciales supplémentaires pourront être ajoutées dans une catégorie distincte, sans les confondre avec les références normalisées.
+
+# 4. SOURCES DE DONNÉES
+
+La qualité de la bibliothèque dépend de la qualité des données.
+
+Sources initiales à examiner :
+
+1. Steel Section Database :
+https://github.com/ulmewix/Steel_Section_Database
+
+2. Ahan Assa :
+https://www.ahanassa.com/
+
+3. ArcelorMittal Constructalia :
+https://constructalia.arcelormittal.com/
+
+4. CADXChange :
+https://www.cadxchange.com/
+
+5. Documentation des normes EN correspondantes.
+
+Ces sources doivent être examinées avant toute reconstruction manuelle.
+
+Pour chaque famille :
+- Identifier les références disponibles.
+- Récupérer les dimensions nominales.
+- Récupérer les rayons de congé.
+- Identifier les épaisseurs.
+- Identifier les tolérances lorsqu'elles sont disponibles.
+- Identifier la norme et l'édition.
+- Conserver la provenance de chaque donnée.
+
+Attention aux licences : vérifier les conditions de réutilisation et de redistribution des données et des fichiers géométriques. La licence du code d'un dépôt ne donne pas automatiquement les droits sur toutes les données qu'il contient.
+
+# 5. ARCHITECTURE TECHNIQUE
+
+## 5.1 Technologies
+
+- Python 3.12 ou version compatible avec les dépendances retenues.
+- PySide6 : interface graphique.
+- CadQuery : construction géométrique.
+- Open CASCADE : noyau géométrique B-Rep.
+- SQLite : base de données locale.
+- ezdxf : génération DXF.
+- Trimesh : gestion des maillages et exports OBJ/STL/GLB.
+
+Vérifier les compatibilités entre versions avant de figer l'environnement.
+
+Privilégier des dépendances libres et maintenues.
+
+## 5.2 Architecture logicielle
+
+Séparer strictement :
+
+A. Interface utilisateur  
+B. Base de données  
+C. Moteur géométrique  
+D. Validation géométrique  
+E. Système d'export
+
+Le moteur géométrique ne doit pas dépendre de l'interface.
+
+Il doit pouvoir être utilisé indépendamment depuis un script Python.
+
+# 6. MODÈLE DE DONNÉES
+
+Utiliser SQLite comme base centrale.
+
+Chaque profilé doit comporter :
+
+- Identifiant unique.
+- Famille.
+- Désignation commerciale.
+- Désignation normalisée.
+- Norme de référence.
+- Édition de la norme.
+- Source des données.
+- Unité : mm.
+- Dimensions principales.
+- Épaisseurs.
+- Rayons intérieurs.
+- Rayons extérieurs.
+- Paramètres géométriques spécifiques.
+- Niveau de fiabilité des données.
+- Date de vérification.
+
+Exemple de structure JSON :
+
+{
+  "id": "IPE_200",
+  "family": "IPE",
+  "designation": "IPE 200",
+  "standard": "EN 10365",
+  "unit": "mm",
+  "geometry": {
+    "h": null,
+    "b": null,
+    "tw": null,
+    "tf": null,
+    "r": null
+  },
+  "source": {
+    "name": null,
+    "url": null,
+    "edition": null
+  },
+  "status": "pending_validation"
+}
+
+Les valeurs nulles sont volontairement laissées à renseigner depuis une source vérifiée.
+
+Ne jamais remplir les valeurs manquantes par supposition.
+
+# 7. MOTEUR GÉOMÉTRIQUE
+
+C'est le cœur du projet.
+
+Chaque famille doit disposer de son propre générateur géométrique.
+
+## 7.1 Profilés I et H
+
+Construire la section à partir :
+- De l'âme.
+- Des semelles.
+- Des épaisseurs respectives.
+- Des congés entre âme et semelles.
+- Des éventuels rayons extérieurs.
+
+Ne pas créer simplement trois rectangles fusionnés.
+
+Les congés doivent être de véritables arcs de cercle.
+
+## 7.2 Profilés U
+
+Construire :
+- L'âme.
+- Les deux ailes.
+- Les rayons de raccordement.
+- Les éventuelles inclinaisons des ailes.
+- Les particularités géométriques de la série.
+
+Ne pas supposer que UPN et UPE possèdent la même géométrie.
+
+## 7.3 Cornières L
+
+Construire :
+- Aile horizontale.
+- Aile verticale.
+- Épaisseurs.
+- Rayon intérieur.
+- Rayons extérieurs documentés.
+
+Gérer les ailes égales et inégales.
+
+## 7.4 Profilés T
+
+Construire :
+- L'âme.
+- La semelle.
+- Les raccordements.
+- Les rayons de congé.
+- Les éventuelles particularités de laminage.
+
+## 7.5 Tubes carrés et rectangulaires
+
+Construire deux contours fermés :
+- Contour extérieur.
+- Contour intérieur.
+
+Respecter :
+- Largeur.
+- Hauteur.
+- Épaisseur.
+- Rayon extérieur.
+- Rayon intérieur.
+
+Distinguer les géométries selon les procédés de fabrication et les normes.
+
+## 7.6 Tubes circulaires
+
+Créer deux cercles concentriques.
+
+Respecter :
+- Diamètre extérieur.
+- Épaisseur.
+- Diamètre intérieur.
+
+## 7.7 Plats, ronds et carrés
+
+Génération à partir des dimensions nominales :
+- Rectangle.
+- Cercle.
+- Carré.
+
+Ne pas ajouter de rayons non documentés.
+
+# 8. FIDÉLITÉ GÉOMÉTRIQUE
+
+Exigence prioritaire.
+
+Le logiciel doit produire une géométrie B-Rep valide, avec des contours fermés et des raccordements exacts.
+
+Il faut distinguer :
+- Dimensions nominales.
+- Tolérances de fabrication.
+- Dimensions géométriques de référence.
+
+La géométrie nominale doit être reproduite à partir des données documentées.
+
+Ne pas transformer arbitrairement les tolérances en variations géométriques.
+
+Les rayons de congé doivent être intégrés directement dans la construction des profils, et non approximés par des chanfreins.
+
+Si les données ne permettent pas une reconstruction fiable, afficher un avertissement et empêcher de qualifier le profilé de géométriquement vérifié.
+
+# 9. GESTION DES LONGUEURS ET DE LA GÉOMÉTRIE 3D
+
+Le profilé est défini avant tout par sa section transversale.
+
+Le logiciel doit conserver cette section comme géométrie de référence.
+
+Prévoir deux représentations :
+
+1. Section 2D exacte : contour fermé, avec lignes et arcs.
+2. Solide 3D : extrusion de cette section, avec longueur technique paramétrable pour la visualisation et l'export.
+
+La longueur d'extrusion ne doit jamais modifier la géométrie de la section.
+
+Par défaut, l'axe longitudinal est Z.
+
+Origine :
+- Centrée sur la section lorsque cela est pertinent.
+- Positionnement cohérent et documenté pour chaque famille.
+- Repère local conservé dans les exports.
+
+# 10. FORMATS D'EXPORT
+
+Priorité aux formats suivants :
+
+## STEP
+- STEP AP214 ou AP242.
+- Solide B-Rep.
+- Conservation des surfaces et des arcs.
+- Format de référence pour les échanges CAO.
+
+## DXF
+- Section 2D.
+- Contours fermés.
+- Lignes et arcs réels.
+- Unités millimétriques.
+- Calques séparés si nécessaire.
+
+## OBJ
+- Export de maillage pour Blender.
+- Normales correctes.
+- Objet nommé selon la référence.
+- Maillage réglable en précision.
+
+## STL
+- Export de maillage.
+- Contrôle de fermeture.
+- Précision de tessellation réglable.
+
+## GLB
+- Export pour visualisation 3D et échanges avec des visualiseurs compatibles.
+
+Ne pas convertir systématiquement la géométrie exacte en maillage pour les formats qui permettent de conserver les courbes et surfaces analytiques.
+
+# 11. INTERFACE UTILISATEUR
+
+Interface sobre, légère et fonctionnelle.
+
+Fenêtre principale :
+
+ZONE 1 : RECHERCHE
+- Champ de recherche par désignation.
+- Filtre par famille.
+- Filtre par norme.
+
+ZONE 2 : CATALOGUE
+- Liste des références disponibles.
+- Désignation.
+- Norme.
+- Disponibilité des données géométriques.
+- Statut de validation.
+
+ZONE 3 : INFORMATIONS
+- Dimensions.
+- Épaisseurs.
+- Rayons.
+- Source.
+- Aperçu 2D de la section.
+
+ZONE 4 : APERÇU 3D
+- Visualisation du solide.
+- Rotation.
+- Zoom.
+- Contrôle de l'affichage.
+
+ZONE 5 : EXPORT
+- STEP.
+- DXF.
+- OBJ.
+- STL.
+- GLB.
+
+L'utilisateur doit pouvoir générer un profilé en quelques clics.
+
+# 12. CONTRÔLES ET TESTS
+
+Chaque profilé doit passer plusieurs contrôles.
+
+## Contrôle des dimensions
+
+Comparer les dimensions du modèle avec les données de référence.
+
+## Contrôle des contours
+
+- Fermeture des contours.
+- Absence d'auto-intersection.
+- Absence de segments parasites.
+- Continuité des arcs.
+
+## Contrôle du solide
+
+- Solide valide.
+- Volume positif.
+- Absence de faces ouvertes.
+- Absence de géométrie non-manifold.
+
+## Contrôle du volume
+
+Calculer le volume géométrique de la section et le comparer à la valeur théorique ou aux données de référence lorsqu'elles sont disponibles.
+
+Attention : les valeurs de masse linéique des catalogues peuvent intégrer des conventions ou arrondis. Elles ne constituent pas toujours une mesure directe du volume géométrique.
+
+## Tests d'export
+
+Tester l'ouverture des fichiers dans :
+- Blender.
+- ZWCAD.
+- SketchUp.
+
+Créer des fichiers de test représentatifs de chaque famille.
+
+# 13. ORGANISATION DU PROJET
+
+steel-profile/
+
+├── README.md
+├── LICENSE
+├── requirements.txt
+├── pyproject.toml
+│
+├── app/
+│   ├── main.py
+│   ├── interface/
+│   │   ├── main_window.py
+│   │   ├── catalog_view.py
+│   │   ├── profile_view.py
+│   │   └── preview.py
+│   │
+│   ├── database/
+│   │   ├── models.py
+│   │   ├── database.py
+│   │   ├── import_data.py
+│   │   └── validation.py
+│   │
+│   ├── geometry/
+│   │   ├── base.py
+│   │   ├── i_sections.py
+│   │   ├── u_sections.py
+│   │   ├── l_sections.py
+│   │   ├── t_sections.py
+│   │   ├── hollow_sections.py
+│   │   └── solid_sections.py
+│   │
+│   ├── exporters/
+│   │   ├── step.py
+│   │   ├── dxf.py
+│   │   ├── obj.py
+│   │   ├── stl.py
+│   │   └── glb.py
+│   │
+│   └── tests/
+│       ├── test_dimensions.py
+│       ├── test_geometry.py
+│       ├── test_volume.py
+│       └── test_exports.py
+│
+├── data/
+│   ├── profiles.db
+│   ├── sources/
+│   └── imports/
+│
+├── exports/
+│
+└── docs/
+    ├── standards.md
+    ├── sources.md
+    ├── geometry.md
+    └── licenses.md
+
+# 14. PLAN DE DÉVELOPPEMENT
+
+## PHASE 1 – ANALYSE DES SOURCES
+
+Avant de développer les générateurs :
+- Examiner le dépôt Steel Section Database.
+- Examiner les fichiers DXF disponibles.
+- Identifier les familles et dimensions.
+- Identifier les données de congés.
+- Identifier les doublons.
+- Vérifier les licences.
+- Créer une première base SQLite.
+
+Livrable : catalogue documenté des profils disponibles et des données manquantes.
+
+## PHASE 2 – MOTEUR GÉOMÉTRIQUE
+
+Développer les générateurs de :
+- IPE.
+- HEA / HEB.
+- UPN / UPE.
+- Cornières L.
+- Tubes SHS / RHS / CHS.
+
+Livrable : génération de sections 2D exactes et solides 3D valides.
+
+## PHASE 3 – EXPORTS
+
+Développer :
+- STEP.
+- DXF.
+- OBJ.
+- STL.
+- GLB.
+
+Livrable : exports testés et documentés.
+
+## PHASE 4 – INTERFACE
+
+Créer l'application PySide6.
+
+Livrable : application locale fonctionnelle avec recherche, aperçu et export.
+
+## PHASE 5 – EXTENSION DU CATALOGUE
+
+Compléter :
+- Profilés T.
+- Plats.
+- Ronds.
+- Carrés.
+- Séries complémentaires.
+- Références supplémentaires des fabricants.
+
+Livrable : bibliothèque européenne étendue.
+
+# 15. CRITÈRES DE VALIDATION DU PROJET
+
+Le projet sera considéré comme fonctionnel lorsque :
+
+1. L'utilisateur peut rechercher une référence normalisée.
+2. Il peut consulter ses dimensions et ses rayons.
+3. Il peut afficher la section exacte.
+4. Il peut générer un solide 3D.
+5. Il peut exporter un STEP exploitable.
+6. Il peut exporter un DXF avec de vrais arcs.
+7. Il peut exporter un OBJ ou STL exploitable dans Blender.
+8. Les dimensions du modèle sont contrôlées automatiquement.
+9. Les sources des données sont identifiables.
+10. Les références incomplètes sont explicitement signalées.
+
+# 16. INSTRUCTIONS DE DÉVELOPPEMENT POUR OPENCODE
+
+Ne pas commencer par coder toute l'application.
+
+Procéder dans cet ordre :
+
+1. Analyser les bibliothèques et sources existantes.
+2. Établir un inventaire des références.
+3. Établir le schéma de données.
+4. Développer un prototype géométrique IPE 200.
+5. Vérifier les dimensions, rayons et volume.
+6. Tester les exports STEP, DXF et OBJ.
+7. Valider le moteur avant de développer les autres familles.
+8. Ajouter progressivement les générateurs.
+9. Développer l'interface.
+10. Compléter le catalogue.
+
+Ne jamais masquer une donnée manquante par une approximation.
+
+Ne jamais déclarer un profilé exact si ses paramètres géométriques n'ont pas été vérifiés.
+
+Privilégier la fiabilité géométrique à la quantité de références disponibles.
+
+**OBJECTIF FINAL : un petit logiciel local, rapide et fiable, capable de générer à la demande les sections exactes de profilés métalliques normalisés européens et de les exporter dans les formats utilisés par les logiciels de CAO et de 3D.**

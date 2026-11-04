@@ -1,0 +1,6 @@
+# Dépendances du projet.
+#
+# Le moteur (app.geometry) et les exports (app.exports) n'utilisent que la
+# bibliothèque standard de Python. PySide6 ne sert qu'à l'interface app.gui :
+# sans lui, `python -m app.gui` est indisponible mais tout le reste fonctionne.
+-r requirements-gui.txt
