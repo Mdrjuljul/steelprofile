@@ -219,7 +219,11 @@ SELECT
     MAX(CASE WHEN pp.param = 'D'         THEN pp.value END) AS "D",
     MAX(CASE WHEN pp.param = 'a'         THEN pp.value END) AS a,
     MAX(CASE WHEN pp.param = 'slope_pct' THEN pp.value END) AS slope_pct,
-    MAX(CASE WHEN pp.param = 'x_tf'      THEN pp.value END) AS x_tf
+    MAX(CASE WHEN pp.param = 'x_tf'      THEN pp.value END) AS x_tf,
+    MAX(CASE WHEN pp.param = 'pitch'     THEN pp.value END) AS pitch,
+    MAX(CASE WHEN pp.param = 'depth'     THEN pp.value END) AS depth,
+    MAX(CASE WHEN pp.param = 'crest'     THEN pp.value END) AS crest,
+    MAX(CASE WHEN pp.param = 'trough'    THEN pp.value END) AS trough
 FROM profile p
 JOIN series s ON s.series_id = p.series_id
 LEFT JOIN profile_param pp ON pp.profile_id = p.profile_id

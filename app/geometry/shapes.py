@@ -18,7 +18,14 @@ from __future__ import annotations
 import math
 from typing import Callable, Mapping
 
-from app.geometry.contour import ContourBuilder, GeometryError, Section
+from app.geometry.contour import (
+    Arc,
+    Contour,
+    ContourBuilder,
+    GeometryError,
+    Line,
+    Section,
+)
 
 CLOSURE_TOLERANCE_FACTOR = 1e-9
 
@@ -348,6 +355,143 @@ def t_tapered(h: float, b: float, tw: float, tf: float, r1: float, r2: float,
 
 
 # --------------------------------------------------------------------------- #
+# Couverture / bardage
+# --------------------------------------------------------------------------- #
+
+def trapezoid_angle_deg(pitch: float, depth: float, crest: float, trough: float) -> float:
+    """Angle des âmes d'une onde trapézoïdale, en degrés.
+
+    L'angle n'est pas un paramètre libre : il découle exactement du pas, de la
+    profondeur et des deux plats (intersections théoriques, avant congés).
+    """
+    run = (pitch - crest - trough) / 2.0
+    if not run > 0.0:
+        raise GeometryError(
+            f"pas - plateaux = {pitch - crest - trough:g} doit être > 0 "
+            "(il doit rester une projection horizontale pour les âmes)")
+    return math.degrees(math.atan2(depth, run))
+
+
+def trapezoidal_sheet(pitch: float, depth: float, crest: float, trough: float,
+                      t: float, r: float) -> Section:
+    """Tôle trapézoïdale : module d'une onde, épaisseur constante, plis exacts.
+
+    Conventions (déclarées, vérifiables) :
+
+    - `pitch` : pas, d'un centre de creux au centre de creux suivant ;
+    - `depth` : profondeur, de la face **extérieure** du creux à celle du sommet ;
+    - `crest` / `trough` : largeurs des plateaux haut et bas mesurées entre les
+      **intersections théoriques** des âmes et des plateaux, avant congés ;
+    - `t` : épaisseur de la tôle ;
+    - `r` : rayon de pliage **extérieur**, identique aux quatre plis d'une onde.
+
+    La face extérieure est la face supérieure du creux (`z = 0`) ; la matière est
+    sous elle. Les quatre plis sont des arcs de cercle vrais, tangents aux
+    segments. La face intérieure est l'offset exact à la distance `t` : ses arcs
+    sont concentriques aux arcs extérieurs, de rayon `r + t` dans les creux et
+    `r - t` aux sommets. Les deux bords libres sont des coupes droites,
+    perpendiculaires au plateau bas.
+
+    Le module modélisé couvre **un pas** et il est centré sur `y = 0` : le plateau
+    haut est au milieu, les deux demi-creux tombent sur les bords. La largeur utile
+    commerciale est une donnée de catalogue, pas une cote de cette section.
+    """
+    _require_positive(pitch=pitch, depth=depth, crest=crest, trough=trough, t=t, r=r)
+    if not r > t:
+        raise GeometryError(
+            f"rayon de pliage r = {r:g} doit être > épaisseur t = {t:g} "
+            "(sinon le rayon intérieur au sommet r - t serait négatif)")
+
+    run = (pitch - crest - trough) / 2.0
+    if not run > 0.0:
+        raise GeometryError(
+            f"pas - plateaux = {pitch - crest - trough:g} doit être > 0 "
+            "(il doit rester une projection horizontale pour les âmes)")
+
+    alpha = math.atan2(depth, run)
+    turn = math.degrees(alpha)
+    tangent = r * math.tan(alpha / 2.0)
+    web = math.hypot(run, depth) - 2.0 * tangent
+
+    for label, flat in (("plateau haut crest", crest), ("plateau bas trough", trough)):
+        if not flat - 2.0 * tangent > 0.0:
+            raise GeometryError(
+                f"{label} - 2·r·tan(α/2) = {flat - 2.0 * tangent:g} doit être > 0 "
+                "(les deux congés se chevaucheraient)")
+    if not web > 0.0:
+        raise GeometryError(
+            f"partie droite d'âme = {web:g} doit être > 0 "
+            "(le rayon de pliage consomme toute l'âme)")
+
+    def wave(builder: ContourBuilder, r_valley: float, r_peak: float) -> None:
+        builder.line(trough / 2.0 - tangent)
+        builder.arc(turn, r_valley)          # creux -> âme montante
+        builder.line(web)                    # âme montante
+        builder.arc(-turn, r_peak)           # âme -> plateau haut
+        builder.line(crest - 2.0 * tangent)  # plateau haut
+        builder.arc(-turn, r_peak)           # plateau haut -> âme descendante
+        builder.line(web)                    # âme descendante
+        builder.arc(turn, r_valley)          # âme -> creux suivant
+        builder.line(trough / 2.0 - tangent)
+
+    outer = ContourBuilder(start=(-pitch / 2.0, 0.0), heading_deg=0.0)
+    wave(outer, r, r)
+    inner = ContourBuilder(start=(-pitch / 2.0, -t), heading_deg=0.0)
+    wave(inner, r + t, r - t)
+
+    right_edge = Line((pitch / 2.0, 0.0), (pitch / 2.0, -t))
+    left_edge = Line((-pitch / 2.0, -t), (-pitch / 2.0, 0.0))
+    pieces: list = list(outer.primitives)
+    pieces.append(right_edge)
+    pieces.extend(_reverse_primitive(p) for p in reversed(inner.primitives))
+    pieces.append(left_edge)
+
+    # Le bandeau extérieur/intérieur se parcourt d'abord dans le sens horaire :
+    # on renverse la chaîne pour obtenir un contour extérieur trigonométrique.
+    contour = [_reverse_primitive(p) for p in reversed(pieces)]
+    return Section(outer=(_closed_contour(contour, _tolerance(pitch, depth, t)),))
+
+
+def sinusoidal_sheet(pitch: float, depth: float, t: float) -> Section:
+    """Tôle ondulée sinusoïdale — non constructible exactement en l'état.
+
+    Une sinusoïde n'est pas une suite de segments et d'arcs de cercle : la
+    remplacer par des arcs serait une approximation, et le catalogue local ne
+    documente ni rayon ni angle de raccordement. Aucun modèle n'est substitué.
+    """
+    _require_positive(pitch=pitch, depth=depth, t=t)
+    raise GeometryError(
+        "tôle ondulée sinusoïdale non constructible : une sinusoïde n'est pas "
+        "représentable exactement par des segments et des arcs de cercle, et le "
+        "catalogue ne documente ni rayon ni angle ; aucune approximation n'est "
+        "substituée (fiche technique fabricant requise)")
+
+
+def _reverse_primitive(primitive):
+    """Primitive parcourue en sens inverse (segment ou arc)."""
+    if isinstance(primitive, Line):
+        return Line(primitive.p1, primitive.p0)
+    if isinstance(primitive, Arc):
+        return Arc(primitive.center, primitive.radius,
+                   primitive.theta0 + primitive.sweep, -primitive.sweep)
+    raise TypeError(f"primitive inattendue : {type(primitive)!r}")
+
+
+def _closed_contour(pieces, tolerance: float) -> Contour:
+    """Assemble des primitives en un contour fermé, en vérifiant la continuité."""
+    for previous, following in zip(pieces, pieces[1:]):
+        gap = math.dist(previous.end, following.start)
+        if gap > tolerance:
+            raise GeometryError(
+                f"contour discontinu : écart {gap:.3e} mm > {tolerance:.3e} mm")
+    gap = math.dist(pieces[-1].end, pieces[0].start)
+    if gap > tolerance:
+        raise GeometryError(
+            f"contour non fermé : écart {gap:.3e} mm > {tolerance:.3e} mm")
+    return Contour(tuple(pieces))
+
+
+# --------------------------------------------------------------------------- #
 # Dispatcher
 # --------------------------------------------------------------------------- #
 
@@ -403,6 +547,15 @@ def _from_t(p: Mapping[str, float]) -> Section:
     return t_tapered(p["h"], p["b"], p["tw"], p["tf"], p["r1"], p["r2"], p["slope_pct"], p["x_tf"])
 
 
+def _from_trapezoidal(p: Mapping[str, float]) -> Section:
+    return trapezoidal_sheet(p["pitch"], p["depth"], p["crest"], p["trough"],
+                             p["t"], p["r"])
+
+
+def _from_sinusoidal(p: Mapping[str, float]) -> Section:
+    return sinusoidal_sheet(p["pitch"], p["depth"], p["t"])
+
+
 BUILDERS: dict[str, Callable[[Mapping[str, float]], Section]] = {
     "I": _from_i,
     "U": _from_u,
@@ -417,6 +570,8 @@ BUILDERS: dict[str, Callable[[Mapping[str, float]], Section]] = {
     "ROUND": _from_round,
     "SQUARE": _from_square,
     "T_TAPERED": _from_t,
+    "TRAPEZOIDAL": _from_trapezoidal,
+    "SINUSOIDAL": _from_sinusoidal,
 }
 
 

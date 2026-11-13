@@ -19,6 +19,7 @@ import argparse
 import csv
 import io
 import json
+import math
 import re
 import sqlite3
 import sys
@@ -47,6 +48,7 @@ FAMILIES = [
     ("T", "Profilés en T", "3.5", 1, 50),
     ("HOLLOW", "Tubes et profilés creux", "3.6", 1, 60),
     ("SOLID", "Profilés pleins", "3.7", 1, 70),
+    ("COVER", "Couverture et bardage", "3.8 (commercial)", 1, 80),
 ]
 
 SHAPES = {
@@ -66,6 +68,10 @@ SHAPES = {
     # doit être confirmé sur la norme avant toute reconstruction. Aucune donnée
     # n'est importée dans cette forme à ce jour.
     "T_TAPERED": ("Profilé T à semelles inclinées (EN 10055)", 1, "geometry/t_sections.py"),
+    # Famille commerciale : couverture et bardage. Le module est une seule onde ;
+    # la largeur utile est une donnée de catalogue, pas une cote de la section.
+    "TRAPEZOIDAL": ("Tôle trapézoïdale (module d'une onde)", 1, "geometry/shapes.py"),
+    "SINUSOIDAL": ("Tôle ondulée sinusoïdale", 1, "geometry/shapes.py"),
 }
 
 PARAMS = {
@@ -85,6 +91,9 @@ PARAMS = {
     "SQUARE":    [("a", 1)],
     "T_TAPERED": [("h", 1), ("b", 1), ("tw", 1), ("tf", 1), ("r1", 1), ("r2", 1),
                   ("slope_pct", 1), ("x_tf", 1)],
+    "TRAPEZOIDAL": [("pitch", 1), ("depth", 1), ("crest", 1), ("trough", 1),
+                    ("t", 1), ("r", 1)],
+    "SINUSOIDAL": [("pitch", 1), ("depth", 1), ("t", 1)],
 }
 
 PARAM_LABELS = {
@@ -94,6 +103,25 @@ PARAM_LABELS = {
     "ri": "rayon d'angle intérieur", "D": "diamètre extérieur",
     "a": "côté du carré",
     "slope_pct": "inclinaison des semelles (%)", "x_tf": "abscisse de mesure de tf",
+    "pitch": "pas de l'onde", "depth": "profondeur de l'onde",
+    "crest": "largeur du plateau haut", "trough": "largeur du plateau bas",
+}
+
+# Libellés propres à une forme quand le nom du paramètre est réutilisé.
+PARAM_LABELS_BY_SHAPE = {
+    "TRAPEZOIDAL": {
+        "pitch": "pas de l'onde",
+        "depth": "profondeur de l'onde (face extérieure)",
+        "crest": "plateau haut (intersections théoriques)",
+        "trough": "plateau bas (intersections théoriques)",
+        "t": "épaisseur de tôle",
+        "r": "rayon de pliage extérieur",
+    },
+    "SINUSOIDAL": {
+        "pitch": "pas de l'onde",
+        "depth": "profondeur de l'onde",
+        "t": "épaisseur de tôle",
+    },
 }
 
 # Règles de rayon d'angle (EN 10210-2:2006 A.3 / EN 10219-2:2006 B.3).
@@ -239,7 +267,7 @@ EXCLUDED_INFEASIBLE = {"RHS-HF": ["RHS 80x40x11", "RHS 80x40x12.5"]}
 
 DERIVED_UNITS = {
     "mm": "mm", "cm": "cm", "cm2": "cm2", "cm3": "cm3", "cm4": "cm4", "cm6": "cm6",
-    "kg_m": "kg/m", "m2_m": "m2/m", "deg": "deg",
+    "kg_m": "kg/m", "kg_m2": "kg/m2", "m2_m": "m2/m", "deg": "deg",
 }
 # ---------------------------------------------------------------------------
 # Utilitaires
@@ -428,6 +456,38 @@ def feasibility(shape: str, g: dict[str, Decimal | None]) -> list[str]:
         if not (0 < x_tf < outstand):
             errors.append("x_tf doit vérifier 0 < x_tf < porte-à-faux")
 
+    elif shape == "TRAPEZOIDAL":
+        for p in ("pitch", "depth", "crest", "trough", "t", "r"):
+            if gt.get(p, 0) <= 0:
+                errors.append(f"{p} doit être > 0")
+        if errors:
+            return errors
+        pitch = float(gt["pitch"])
+        depth = float(gt["depth"])
+        crest = float(gt["crest"])
+        trough = float(gt["trough"])
+        t = float(gt["t"])
+        r = float(gt["r"])
+        run = (pitch - crest - trough) / 2.0
+        if not run > 0.0:
+            errors.append("pitch − crest − trough doit être > 0 (projection horizontale des âmes)")
+            return errors
+        if not r > t:
+            errors.append("r doit être > t (sinon le rayon intérieur au sommet r − t est négatif)")
+        alpha = math.atan2(depth, run)
+        tangent = r * math.tan(alpha / 2.0)
+        if not crest - 2.0 * tangent > 0.0:
+            errors.append("crest − 2·r·tan(α/2) doit être > 0 (les congés du plateau haut se chevauchent)")
+        if not trough - 2.0 * tangent > 0.0:
+            errors.append("trough − 2·r·tan(α/2) doit être > 0 (les congés du plateau bas se chevauchent)")
+        if not math.hypot(run, depth) - 2.0 * tangent > 0.0:
+            errors.append("partie droite d'âme doit être > 0 (le rayon de pliage consomme toute l'âme)")
+
+    elif shape == "SINUSOIDAL":
+        for p in ("pitch", "depth", "t"):
+            if gt.get(p, 0) <= 0:
+                errors.append(f"{p} doit être > 0")
+
     return errors
 
 
@@ -495,11 +555,12 @@ def build(db_path: Path, repo: Path, stats_path: Path, staging: Path = STAGING) 
 
     for shape_id, (label, sym, gen) in SHAPES.items():
         cur.execute("INSERT INTO shape VALUES (?,?,?,?,NULL)", (shape_id, label, sym, gen))
+        shape_labels = PARAM_LABELS_BY_SHAPE.get(shape_id, {})
         for order, (param, required) in enumerate(PARAMS[shape_id], start=1):
             cur.execute(
                 "INSERT INTO param_def VALUES (?,?,?,?,?,?)",
                 (shape_id, param, "mm" if param != "slope_pct" else "%", required,
-                 PARAM_LABELS.get(param, param), order))
+                 shape_labels.get(param) or PARAM_LABELS.get(param, param), order))
 
     for rid, process, _lo, _hi, _ro_f, _ri_f, ref, note in RADIUS_RULES:
         cur.execute("INSERT OR IGNORE INTO corner_radius_rule VALUES (?,?,?,?)",
@@ -582,6 +643,16 @@ def build(db_path: Path, repo: Path, stats_path: Path, staging: Path = STAGING) 
                      f"{shape_id} : {', '.join(unknown_missing)} — paramètres de la forme : "
                      f"{', '.join(sorted(known_params))}.")
 
+        # Motifs qui rendent la géométrie non constructible *même* lorsque toutes
+        # les cotes sont présentes (nervures non cotées, sommet arrondi, absence de
+        # coupe…). Chaque motif est un fait de la source ; il force le statut
+        # `incomplete` de toutes les lignes de la série et une anomalie bloquante.
+        blocking = meta.get("blocking", [])
+        if not isinstance(blocking, list) or not all(
+                isinstance(item, str) and item.strip() for item in blocking):
+            sys.exit(f"{series_id} : `blocking` doit être une liste de textes non vides.")
+        blocking = [item.strip() for item in blocking]
+
         cur.execute(
             "INSERT INTO series (series_id,family_id,label,shape_id,standard_id,process,"
             "corner_radii_rule,source_id,source_ref,alias_patterns,notes,category,commercial_ref) "
@@ -637,11 +708,16 @@ def build(db_path: Path, repo: Path, stats_path: Path, staging: Path = STAGING) 
                 status = "incomplete"
             elif errors:
                 status = "infeasible"
+            elif blocking:
+                # Toutes les cotes sont là, mais la forme réelle n'est pas
+                # constructible exactement (nervures, sommet arrondi, absence de coupe).
+                status = "incomplete"
             else:
                 status = "complete"
 
             source_kind = "table+rule" if "series_rule" in origins.values() else "table"
-            sort_value = geom.get("h") or geom.get("b") or geom.get("D") or geom.get("a")
+            sort_value = (geom.get("h") or geom.get("b") or geom.get("D")
+                          or geom.get("a") or geom.get("pitch"))
 
             cur.execute(
                 "INSERT INTO profile (profile_id,series_id,designation,designation_key,sort_key,"
@@ -716,6 +792,9 @@ def build(db_path: Path, repo: Path, stats_path: Path, staging: Path = STAGING) 
             issue("series", series_id, "warning", "LOCAL_ONLY_DATA",
                   f"Série locale (source « {source_id} ») : exclue de l'export redistribuable. "
                   f"Ne peut être livrée avec le projet.")
+        if blocking:
+            issue("series", series_id, "blocking", "UNDIMENSIONED_FEATURE",
+                  "Géométrie non constructible en l'état : " + " ; ".join(blocking))
         if category == "commercial":
             issue("series", series_id, "warning", "COMMERCIAL_DATA",
                   f"Dimensions commerciales ({commercial_ref}) : catégorie distincte au sens du §3.7. "
@@ -832,6 +911,8 @@ def family_of(series_id: str, shape_id: str | None = None) -> str:
     # séries locales dont l'identifiant ne suit pas la nomenclature du dépôt.
     if shape_id in ("ROUND", "SQUARE", "FLAT"):
         return "SOLID"
+    if shape_id in ("TRAPEZOIDAL", "SINUSOIDAL"):
+        return "COVER"
     if shape_id == "T_TAPERED":
         return "T"
     if series_id in ("IPE", "IPN") or series_id.startswith("IPE"):
@@ -865,7 +946,7 @@ def match_standard(raw: str | None) -> str | None:
 def split_derived_column(column: str) -> tuple[str | None, str | None]:
     if column == "corner_radii":
         return None, None
-    for suffix in ("_kg_m", "_m2_m", "_cm6", "_cm4", "_cm3", "_cm2", "_mm", "_cm", "_deg"):
+    for suffix in ("_kg_m2", "_kg_m", "_m2_m", "_cm6", "_cm4", "_cm3", "_cm2", "_mm", "_cm", "_deg"):
         if column.endswith(suffix):
             return column[: -len(suffix)], DERIVED_UNITS[suffix[1:]]
     return column, None
@@ -961,7 +1042,7 @@ def write_inventory(con: sqlite3.Connection, path: Path, redistributable_only: b
     """
     cur = con.cursor()
     params = ["h", "b", "tw", "tf", "t", "r", "r1", "r2", "ro", "ri", "D", "a",
-              "slope_pct", "x_tf"]
+              "slope_pct", "x_tf", "pitch", "depth", "crest", "trough"]
     header = ["profile_id", "series_id", "family_id", "shape_id", "process", "standard",
               "category", "commercial_ref",
               "designation", "aliases", "geometry_status", "geometry_source", "verified",
@@ -972,7 +1053,7 @@ def write_inventory(con: sqlite3.Connection, path: Path, redistributable_only: b
                s.category, s.commercial_ref,
                p.designation, p.geometry_status, p.geometry_source, p.verified, s.source_ref,
                g.h, g.b, g.tw, g.tf, g.t, g.r, g.r1, g.r2, g.ro, g.ri, g."D", g.a,
-               g.slope_pct, g.x_tf
+               g.slope_pct, g.x_tf, g.pitch, g.depth, g.crest, g.trough
         FROM profile p
         JOIN series s ON s.series_id = p.series_id
         JOIN source sr ON sr.source_id = s.source_id

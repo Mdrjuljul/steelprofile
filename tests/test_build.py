@@ -69,6 +69,47 @@ class DatabaseTests(unittest.TestCase):
         self.assertTrue(report.ok)
         self.assertEqual(report.profiles, expected)
 
+    def test_cover_sheets_are_imported_without_invention(self) -> None:
+        rows = self.con.execute("""
+            SELECT p.profile_id, p.geometry_status, g.pitch, g.depth, g.crest,
+                   g.trough, g.t, g.r
+            FROM profile p
+            JOIN series s USING (series_id)
+            LEFT JOIN v_profile_geometry g USING (profile_id)
+            WHERE s.family_id = 'COVER'
+            ORDER BY p.profile_id
+        """).fetchall()
+        if not rows:
+            self.skipTest("catalogue standard seul : aucune tôle locale")
+        self.assertEqual(len(rows), 21)
+        for profile_id, status, *_rest in rows:
+            self.assertEqual(status, "incomplete")
+            with self.assertRaises(GeometryError):
+                build_profile(self.con, profile_id)
+
+        clean = self.con.execute("""
+            SELECT g.pitch, g.depth, g.crest, g.trough, g.t, g.r
+            FROM v_profile_geometry g
+            WHERE g.profile_id = 'AM-TRAPEZA-1008/TRAPEZA 11.100.8B e0,63'
+        """).fetchone()
+        self.assertEqual(tuple(clean), (100.0, 7.5, 55.0, 30.0, 0.63, None))
+
+        blocked = self.con.execute("""
+            SELECT COUNT(*) FROM catalog_issue
+            WHERE scope = 'series' AND severity = 'blocking'
+              AND code = 'UNDIMENSIONED_FEATURE'
+              AND ref IN ('AM-TRAPEZA-33339', 'AM-TRAPEZA-3451000',
+                          'AM-TRAPEZA-28329', 'AM-TRAPEZA-26527',
+                          'AM-FREQUENCE-1318')
+        """).fetchone()[0]
+        self.assertEqual(blocked, 5)
+        clear = self.con.execute("""
+            SELECT COUNT(*) FROM catalog_issue
+            WHERE scope = 'series' AND code = 'UNDIMENSIONED_FEATURE'
+              AND ref IN ('AM-TRAPEZA-17525', 'AM-TRAPEZA-1008')
+        """).fetchone()[0]
+        self.assertEqual(clear, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

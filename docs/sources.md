@@ -285,7 +285,7 @@ autorisé) sans jamais la livrer : ces séries sont marquées
 `LOCAL_ONLY_DATA`, et **exclues** de l'export
 `catalogue_inventory_redistributable.csv`. Le contrat de fichier est décrit dans
 `data/staging/README.md`. C'est ce mécanisme qui porte les cinq séries `AM-*`
-du §12.
+du §12, ainsi que les sept séries de tôles du §13.
 
 La séparation du §3.7 est de plus portée par la colonne `series.category`
 (`standard` / `commercial`) : une série commerciale ne peut pas déclarer de norme,
@@ -303,8 +303,9 @@ Voies possibles pour remplir ces familles :
 
 La voie 2 est en place : cinq séries commerciales (`AM-RONDS`, `AM-CARRES`,
 `AM-PLATS`, `AM-LARGES-PLATS`, `AM-TES`) portent **446 références**, importées
-depuis `data/staging/`, jamais incluses dans l'export redistribuable. Les
-dimensions proviennent toutes du catalogue 2020, aucune n'est inventée ni
+depuis `data/staging/`, jamais incluses dans l'export redistribuable. Les tôles
+de couverture et bardage, ajoutées ensuite, sont traitées au §13. Les dimensions
+proviennent toutes du catalogue 2020, aucune n'est inventée ni
 interpolée. Les 7 références T restent, elles, inconstructibles faute de pente et
 de `x_tf`.
 
@@ -428,12 +429,98 @@ sans correction.
 
 - Le PDF et les fichiers `data/staging/AM-*` sont **locaux** ; ils ne sont jamais
   livrés avec le projet.
-- Les cinq séries sont exclues de
-  `data/catalogue_inventory_redistributable.csv` (1 792 lignes, aucune
-  commerciale).
+- Les cinq séries décrites dans ce paragraphe (et les sept séries de tôles du
+  §13) sont exclues de `data/catalogue_inventory_redistributable.csv`
+  (1 792 lignes, aucune commerciale).
 - Une reconstruction publiée avec `data/staging/` vide ne contient que les
   1 792 références normalisées ; `check_catalogue.py --publish` le vérifie.
 - Aucune valeur du catalogue n'est déclarée `verified`.
+
+---
+
+## 13. Tôles de couverture et bardage — catalogue 2020, page 126
+
+### Source et périmètre
+
+La page 126 du même catalogue ArcelorMittal 2020 (« Produits bâtiment —
+couverture sèche / bardage sec ») publie sept produits de tôle profilée. Tous
+relèvent de la catégorie **commerciale** : aucun n'est une référence normalisée.
+
+| Série | Produit | Forme | Largeur utile | Pas | Profondeur | Plateaux (haut / bas) | Épaisseurs | Statut |
+|---|---|---|---:|---:|---:|---|---|---|
+| `AM-TRAPEZA-33339` | TRAPEZA® 3.333.39T | trapézoïdale | 1 000 | 333,3 | 39 | 22 / 72 | 0,63 · 0,75 · 0,88 · 1,00 | incomplet, bloqué |
+| `AM-TRAPEZA-3451000` | TRAPEZA® 3.45.1000TS | trapézoïdale | 1 000 | 333,3 | 45 | 23 / 75 | 0,63 · 0,75 · 0,88 · 1,00 | incomplet, bloqué |
+| `AM-TRAPEZA-28329` | TRAPEZA® 3.283.29T | trapézoïdale | 850 | 283,3 | 29 | 36 / non coté | 0,63 · 0,75 · 0,88 · 1,00 | incomplet, bloqué |
+| `AM-FREQUENCE-1318` | FRÉQUENCE 13.18T | sinusoïdale | 988 | 76 | 18 | — | 0,63 · 0,75 | incomplet, bloqué |
+| `AM-TRAPEZA-26527` | TRAPEZA® 4.265.27B | non cotée | — | — | — | — | 0,63 · 0,75 | incomplet, bloqué |
+| `AM-TRAPEZA-17525` | TRAPEZA® 6.175.25B/HB | trapézoïdale | 1 050 | 175 | 25 | 75 / 35 | 0,63 · 0,75 (HB : 0,75) | incomplet (rayon seul) |
+| `AM-TRAPEZA-1008` | TRAPEZA® 11.100.8B | trapézoïdale | 1 100 | 100 | 7,5 | 55 / 30 | 0,63 · 0,75 | incomplet (rayon seul) |
+
+### Extraction
+
+1. Les cotes ont été lues aux **coordonnées du texte** du PDF (pas à l'ordre du
+   flux), puis rattachées au bon produit par leur bloc.
+2. Les tracés vectoriels des coupes ont été extraits séparément. L'échelle de la
+   coupe 6.175.25 a été recoupée sur la largeur utile (141,17 pt pour 1 050 mm,
+   soit 0,134 pt/mm) : elle redonne exactement 35 mm de plateau bas, 25 mm de
+   profondeur et 75 mm de plateau haut. La coupe 11.100.8 redonne 30 mm et 7,5 mm.
+3. Les masses surfaciques publiées (`Poids (kg/m²)`) sont recopiées dans
+   `derived_property` sous le paramètre `mass_area` (unité `kg/m2`), jamais
+   converties en masse linéique.
+4. Pour 6.175.25 et 11.100.8, le catalogue cote l'**ouverture** au niveau haut
+   (100 et 45) et le pas (175 et 100). Le plateau haut est obtenu par soustraction
+   exacte de deux cotes publiées : `175 − 100 = 75` et `100 − 45 = 55`. Aucune
+   valeur n'est interpolée.
+
+### Ce que la source ne permet pas
+
+- **Aucun rayon de pliage** n'est publié, ni sur cette page ni ailleurs dans le
+  catalogue : la recherche des mots « rayon », « pliage » et « angle » ne renvoie
+  que des occurrences sans rapport avec les tôles. Les rayons restent donc `NULL`
+  et les 21 lignes sont `incomplete`.
+- **Nervures non cotées.** Les coupes 3.333.39T et 3.45.1000TS montrent trois
+  nervures (ou davantage) dans le plateau bas, sans cote. Le 3.283.29T a un
+  sommet arrondi et des nervures dans le plateau bas, lui-même non coté. Le
+  modèle trapézoïdal simple ne peut pas les représenter : ces trois séries sont
+  bloquées par `UNDIMENSIONED_FEATURE`, même si leurs plateaux sont publiés.
+- **Aucune coupe cotée** pour le 4.265.27B (photo 3D seulement) : pas, profondeur,
+  plateaux et rayon sont tous `NULL`, la série est bloquée.
+- **Onde sinusoïdale.** Le FRÉQUENCE 13.18T est une sinusoïde : elle n'est pas
+  représentable exactement par des segments et des arcs, et aucun rayon ni angle
+  de raccordement n'est publié. Le générateur refuse explicitement de
+  l'approximer ; la série est bloquée.
+- **B/HB.** Pour le 6.175.25, le catalogue distingue deux poses (verticale `B`,
+  horizontale `HB`) du même profil ; la ligne HB n'est publiée qu'en 0,75. La
+  géométrie est identique, la variante de pose est consignée en note.
+
+### Recoupement des masses
+
+Le modèle trapézoïdal à rayon `r = 2 mm` (valeur **non stockée**, utilisée
+seulement comme test de cohérence) donne, pour un module :
+
+| Produit | Masse modèle | Masse publiée | Écart |
+|---|---:|---:|---:|
+| 11.100.8B, 0,63 | 5,24 | 5,33 | −1,7 % |
+| 6.175.25, 0,63 | 5,42 | 5,58 | −2,9 % |
+| 3.333.39T, 0,63 | 5,13 | 5,86 | −12,5 % |
+| 3.45.1000TS, 0,63 | 5,19 | 6,03 | −13,9 % |
+
+Les deux produits sans nervures restent à moins de 3 % : l'écart est compatible
+avec un rayon de pliage inconnu et des tolérances de développé. Les deux produits
+à nervures s'écartent de 12 à 14 % : c'est la signature des nervures non cotées,
+et la confirmation que le trapèze simple ne les décrit pas.
+
+### Droits et portée
+
+- Le PDF et les vingt et un fichiers `data/staging/AM-TRAPEZA-*` /
+  `AM-FREQUENCE-*` (7 TOML, 7 CSV et 7 fichiers de propriétés) restent
+  **locaux**.
+- Les sept séries sont exclues de
+  `data/catalogue_inventory_redistributable.csv` et portent `LOCAL_ONLY_DATA`.
+- Aucune de leurs valeurs n'est déclarée `verified`.
+- Une fiche technique TRAPEZA® / HACIERRE® (pas, profondeur, plateaux, rayons
+  de pliage, nervures) est nécessaire pour rendre constructible l'un de ces
+  produits ; elle n'est pas détenue à ce jour.
 
 ---
 
@@ -448,3 +535,6 @@ sans correction.
    pour *vérifier*, sous réserve d'autorisation écrite pour la redistribution.
 4. **Séries IPE A / AA / O / V et HE C** — mêmes réserves ; la section HE 300 C
    (320 × 305) est le cas le plus fréquent, souvent appelée à tort « HEM 320/305 ».
+5. **Fiche technique TRAPEZA® / HACIERRE®** — pas, profondeur, plateaux, rayons
+   de pliage et géométrie des nervures, pour rendre constructibles les tôles de
+   `data/staging/` (§13).

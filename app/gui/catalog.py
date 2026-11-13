@@ -310,7 +310,7 @@ class Catalogue:
 
     # -- profilés ----------------------------------------------------------
     def _all_rows(self) -> list[ProfileRow]:
-        """Toutes les lignes du catalogue, chargées une fois (2 238 références)."""
+        """Toutes les lignes du catalogue, chargées une fois (2 259 références)."""
         if self._rows is None:
             self._rows = [
                 ProfileRow(
@@ -350,7 +350,7 @@ class Catalogue:
 
         `text` est comparé aux clés normalisées de la désignation, des alias et
         de l'identifiant complet (`IPE/IPE 200`, `ipé 200`, `168.3x6`…). Le
-        filtrage se fait en mémoire : 2 238 lignes, une seule requête.
+        filtrage se fait en mémoire : 2 259 lignes, une seule requête.
         """
         key = search_key(text)
         selected = [

@@ -6,11 +6,11 @@ formule de géométrie, aucune règle de construction et aucune règle d'écritu
 fichier. Elle lit le catalogue, affiche le résultat du moteur et délègue
 l'export au même code que la ligne de commande.
 
-> État : **Phase 4 terminée**. La fenêtre parcourt les 7 familles et les
-> 21 séries, affiche l'aperçu exact des 2 231 profilés constructibles et refuse
-> les 7 T incomplets sans compléter aucune valeur. `verified` reste `false`
-> partout. PySide6 n'est requis **que** pour cette couche : le moteur et les
-> exports continuent de fonctionner sans Qt.
+> État : **Phase 4 terminée**. La fenêtre parcourt les 8 familles et les
+> 28 séries, affiche l'aperçu exact des 2 231 profilés constructibles et refuse
+> les 28 incomplets (7 T, 21 tôles) sans compléter aucune valeur. `verified`
+> reste `false` partout. PySide6 n'est requis **que** pour cette couche : le
+> moteur et les exports continuent de fonctionner sans Qt.
 
 ## 1. Lancement
 
@@ -47,7 +47,7 @@ La base n'est jamais modifiée ensuite : l'interface ne fait que lire.
 | `app/gui/app.py` | arguments, `QApplication`, ouverture de la fenêtre | oui |
 | `app/database/bootstrap.py` | premier lancement : construit le catalogue s'il manque | **non** |
 | `app/gui/__main__.py` | `python -m app.gui`, message si PySide6 manque | non |
-| `tests/test_gui.py` | 13 tests : catalogue sans Qt, fenêtre hors écran, export réel | les deux |
+| `tests/test_gui.py` | 14 tests : catalogue sans Qt, fenêtre hors écran, export réel | les deux |
 
 La séparation est stricte :
 
@@ -76,14 +76,15 @@ Trois panneaux redimensionnables :
 
 ### 3.1 Recherche
 
-La recherche est faite **en mémoire** sur les 2 238 lignes, avec la même
+La recherche est faite **en mémoire** sur les 2 259 lignes, avec la même
 normalisation que le catalogue (`search_key`) : majuscules, sans accent, sans
 espace, point conservé. Une saisie libre trouve donc :
 
 - `ipé 200`, `IPE200`, `Ipe 200` → `IPE/IPE 200` ;
 - `IPE/IPE 200` (identifiant complet) → la même ligne ;
 - `168.3x6` → les CHS correspondants ;
-- `Té 20x20x3` → le T commercial, même incomplet.
+- `Té 20x20x3` → le T commercial, même incomplet ;
+- `trapeza 3.333` → la tôle commerciale, même bloquée.
 
 La correspondance exacte (désignation, alias, identifiant) est prioritaire ;
 à défaut, la recherche par sous-chaîne filtre l'arbre. Le filtre de catégorie
@@ -181,13 +182,14 @@ l'interface n'a pas de règle à elle. Voir [`docs/exports.md`](exports.md).
 
 ## 6. Tests
 
-`tests/test_gui.py` contient 13 tests :
+`tests/test_gui.py` contient 14 tests :
 
-- **catalogue, sans Qt** : comptages (2 238 / 2 231 / 7), 7 familles,
-  16 séries normalisées + 5 commerciales, normalisation de recherche,
+- **catalogue, sans Qt** : comptages (2 259 / 2 231 / 28), 8 familles,
+  16 séries normalisées + 12 commerciales, normalisation de recherche,
   `find("ipé 200")`, filtres par catégorie, détail complet d'IPE 200 (21 lignes,
-  aucune hors tolérance), refus du T avec `slope_pct` et `x_tf` manquants ;
-- **fenêtre, hors écran** : 7 familles dans l'arbre, sélection d'IPE 200
+  aucune hors tolérance), refus du T avec `slope_pct` et `x_tf` manquants,
+  tôles sans cotes inventées (rayon absent, blocage de forme, sinusoïde) ;
+- **fenêtre, hors écran** : 8 familles dans l'arbre, sélection d'IPE 200
   (5 dimensions, 21 propriétés, export activé), sélection du T (export
   désactivé, texte de refus présent), exactitude du chemin Qt d'un creux,
   formatage des nombres ;
@@ -210,6 +212,9 @@ python -m unittest discover -s tests
   enregistrée. L'interface l'affiche dans chaque fiche et dans *À propos*.
 - **Les 7 T restent incomplets** : la pente de semelle et `x_tf` ne sont pas
   documentées (EN 10055 requis). L'interface le montre, elle ne le masque pas.
+- **Les 21 tôles restent incomplètes** : aucun rayon de pliage n'est publié ;
+  cinq séries sont en plus bloquées par leur forme (nervures, sommet arrondi,
+  absence de coupe, sinusoïde). L'export est refusé, sans approximation.
 - **Pas d'édition** : l'interface ne propose aucune saisie ni correction de
   dimension ; elle ne modifie jamais le catalogue.
 - **Pas de vue 3D** : l'aperçu est une section 2D exacte ; l'extrusion est
@@ -217,7 +222,7 @@ python -m unittest discover -s tests
 - **Pas de sélecteur d'unités ni de norme de dessin** : les unités sont celles
   du catalogue (mm, cm², cm⁴, cm³, cm, kg/m) et les conventions d'export sont
   fixes (voir `docs/exports.md` §2).
-- **Données commerciales locales** : les 446 références `AM-*` restent
+- **Données commerciales locales** : les 467 références `AM-*` restent
   `local_only`. L'interface les marque `COMMERCIAL` et ne les présente jamais
   comme normalisées ; une base publiable se reconstruit sans `data/staging/`.
 - **Pas d'empaquetage** : l'application se lance depuis le dépôt, avec Python

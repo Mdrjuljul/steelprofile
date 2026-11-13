@@ -2,7 +2,7 @@
 
 **Projet :** SteelProfile — générateur local de profilés métalliques normalisés européens
 **Phase :** 1 — analyse des sources et constitution du catalogue
-**Date :** 30 octobre 2026
+**Date :** 30 octobre 2026 (complété le 13 novembre 2026 — tôles de couverture et bardage)
 **Périmètre de cette phase :** données uniquement. Aucune interface, aucune géométrie.
 
 ---
@@ -13,24 +13,26 @@
 |---|---|
 | Sources examinées | 11 pistes (5 du §4 + 6 recherches complémentaires) |
 | Sources retenues | **2** : Steel Section Database (MIT, normalisée) et catalogue ArcelorMittal 2020 (commerciale, locale) |
-| Séries intégrées | **21** — 16 normalisées, 5 commerciales |
-| Références au catalogue | **2 238** — 1 792 normalisées, 446 commerciales |
-| Références exploitables (géométrie complète) | **2 231 (99,7 %)** |
-| dont géométrie entièrement tabulée | 1 076 (630 normalisées + 446 commerciales) |
+| Séries intégrées | **28** — 16 normalisées, 12 commerciales |
+| Références au catalogue | **2 259** — 1 792 normalisées, 467 commerciales |
+| Références exploitables (géométrie complète) | **2 231 (98,8 %)** |
+| dont géométrie entièrement tabulée | 1 097 (630 normalisées + 467 commerciales) |
 | dont rayons d'angle déduits d'une règle normative | 1 162 |
-| Références incomplètes | **7** (profilés T commerciaux : pente et `x_tf` non publiés) |
-| Familles du cahier des charges couvertes | **7 sur 7** ont des données ; 5 entièrement normalisées, **pleins complets mais partiellement commerciaux**, **T non reconstructible** |
-| Paramètres obligatoires manquants | **14** (7 × `slope_pct`, 7 × `x_tf`) |
+| Références incomplètes | **28** (7 profilés T et 21 tôles) |
+| Familles du cahier des charges couvertes | **8 sur 8** ont des données ; 5 entièrement normalisées, **pleins complets mais partiellement commerciaux**, **T non reconstructible**, **tôles documentées mais non constructibles** |
+| Paramètres obligatoires manquants | **45** (7 × `slope_pct`, 7 × `x_tf`, 31 cotes de tôles) |
 | Valeurs inventées ou interpolées | **0** |
 | Références vérifiées contre une norme | **0** (aucune copie licite consultée) |
-| Anomalies consignées | **63** (8 bloquantes, 39 avertissements, 16 informations) |
+| Anomalies consignées | **108** (32 bloquantes, 60 avertissements, 16 informations) |
 | Export redistribuable | **1 792** références, **aucune** commerciale |
 
 La base `data/profiles.db` est construite et interrogeable. Le catalogue
 normalisé (1 792 références) est utilisable pour la Phase 2 **sous réserve** des
 limites du §9 : les dimensions sont documentées, mais aucune n'a été contrôlée
-ligne à ligne contre la norme. Les 446 références commerciales sont isolées
+ligne à ligne contre la norme. Les 467 références commerciales sont isolées
 (`category = 'commercial'`), ne portent aucune norme et ne sont jamais livrées.
+Parmi elles, 21 tôles de couverture et bardage restent `incomplete` : le
+catalogue fabricant ne publie aucun rayon de pliage.
 
 ---
 
@@ -52,7 +54,7 @@ Deux régimes de données coexistent, sans jamais se mélanger :
 
 - **normalisé** : Steel Section Database (MIT), 1 792 références, `category =
   'standard'` ;
-- **commercial** : catalogue ArcelorMittal 2020, 446 références, `category =
+- **commercial** : catalogue ArcelorMittal 2020, 467 références, `category =
   'commercial'`, `standard_id` NULL, `local_only`.
 
 Aucune valeur n'a été saisie à la main, complétée par interpolation ou déduite
@@ -66,8 +68,8 @@ Fichiers produits :
 
 | Fichier | Rôle |
 |---|---|
-| `data/profiles.db` | base SQLite du catalogue de travail (2 238 références) |
-| `data/catalogue_inventory.csv` | catalogue à plat, 1 ligne par référence (2 238) |
+| `data/profiles.db` | base SQLite du catalogue de travail (2 259 références) |
+| `data/catalogue_inventory.csv` | catalogue à plat, 1 ligne par référence (2 259) |
 | `data/catalogue_inventory_redistributable.csv` | 1 792 références normalisées, aucune commerciale |
 | `data/catalogue_stats.json` | comptages et anomalies, source des chiffres de ce rapport |
 | `data/staging/README.md` | contrat d'import des séries locales (non redistribuées) |
@@ -104,10 +106,11 @@ python data/staging/tools/am_staging.py                              # régénè
 | T — profilés en T | 1 (commerciale) | **7** | **0** | 7 | 0 |
 | Creux — SHS/RHS/CHS | 6 | 1 506 | 1 506 | 344 | 1 162 |
 | Pleins — plats, ronds, carrés | 5 (dont 4 commerciales) | 501 | 501 | 501 | 0 |
-| **Total** | **21** | **2 238** | **2 231** | **1 076** | **1 162** |
+| Couverture et bardage | 7 (commerciales) | **21** | **0** | 21 | 0 |
+| **Total** | **28** | **2 259** | **2 231** | **1 097** | **1 162** |
 
-Sur ces 2 238 références, **1 792 sont normalisées** (16 séries, Steel Section
-Database) et **446 sont commerciales** (5 séries `AM-*`, catalogue ArcelorMittal
+Sur ces 2 259 références, **1 792 sont normalisées** (16 séries, Steel Section
+Database) et **467 sont commerciales** (12 séries `AM-*`, catalogue ArcelorMittal
 2020). Les secondes ne portent aucune norme et ne sont jamais confondues avec les
 premières (`category`, §7.3).
 
@@ -136,13 +139,21 @@ premières (`category`, §7.3).
 | AM-PLATS | **commerciale** | plat | laminé à chaud | aucune | 288 | b 10–150 · t 3–60 |
 | AM-LARGES-PLATS | **commerciale** | plat | laminé à chaud | aucune | 54 | b 160–450 · t 5–35 |
 | AM-TES | **commerciale** | T à semelles inclinées | laminé à chaud | aucune | 7 | h = b 20–80 · e 3–9 · e1 3–9 |
+| AM-TRAPEZA-33339 | **commerciale** | tôle trapézoïdale | formé à froid | aucune | 4 | pas 333,3 · prof. 39 · plateaux 22/72 |
+| AM-TRAPEZA-3451000 | **commerciale** | tôle trapézoïdale | formé à froid | aucune | 4 | pas 333,3 · prof. 45 · plateaux 23/75 |
+| AM-TRAPEZA-28329 | **commerciale** | tôle trapézoïdale | formé à froid | aucune | 4 | pas 283,3 · prof. 29 · sommet 36 (arrondi) |
+| AM-TRAPEZA-17525 | **commerciale** | tôle trapézoïdale | formé à froid | aucune | 3 | pas 175 · prof. 25 · plateaux 75/35 |
+| AM-TRAPEZA-1008 | **commerciale** | tôle trapézoïdale | formé à froid | aucune | 2 | pas 100 · prof. 7,5 · plateaux 55/30 |
+| AM-TRAPEZA-26527 | **commerciale** | tôle trapézoïdale | formé à froid | aucune | 2 | aucune coupe cotée |
+| AM-FREQUENCE-1318 | **commerciale** | tôle sinusoïdale | formé à froid | aucune | 2 | pas 76 · prof. 18 |
 
-Les cinq séries `AM-*` proviennent du catalogue ArcelorMittal 2020, sont
-`local_only` et **exclues** de l'export redistribuable. Le détail de l'extraction,
-des recoupements et des lignes écartées est dans `docs/sources.md` §12.
+Les séries `AM-*` proviennent du catalogue ArcelorMittal 2020, sont `local_only`
+et **exclues** de l'export redistribuable. Le détail de l'extraction, des
+recoupements et des lignes écartées est dans `docs/sources.md` §12 (profilés,
+barres et T) et §13 (tôles de couverture et bardage).
 
 Le détail référence par référence (dimensions, rayons, statut, alias, fichier
-d'origine) est dans `data/catalogue_inventory.csv` (2 238 lignes, 29 colonnes).
+d'origine) est dans `data/catalogue_inventory.csv` (2 259 lignes, 33 colonnes).
 
 ### 3.3 Doublons
 
@@ -194,12 +205,16 @@ paramètre absent rend la référence « incomplète ».
 | `ROUND` | D | aucun | — |
 | `SQUARE` | a | aucun | — |
 | `T_TAPERED` | h, b, tw, tf, r1, r2, slope_pct, x_tf | r1 racine, r2 extrémité d'aile | tabulé (r1, r2) ; `r3` non repris |
+| `TRAPEZOIDAL` | pitch, depth, crest, trough, t, r | 4 plis : r extérieur, r ± t intérieur | **non publié** : `r` reste NULL |
+| `SINUSOIDAL` | pitch, depth, t | aucun rayon publié | — (forme non représentable) |
 
-Les formes `ROUND`, `SQUARE` et `T_TAPERED` sont désormais **peuplées**, mais
-uniquement par des séries commerciales locales : 69 ronds, 28 carrés, 7 T.
+Les formes `ROUND`, `SQUARE`, `T_TAPERED`, `TRAPEZOIDAL` et `SINUSOIDAL` sont
+désormais **peuplées**, mais uniquement par des séries commerciales locales :
+69 ronds, 28 carrés, 7 T, 19 tôles trapézoïdales et 2 tôles sinusoïdales.
 `T_TAPERED` reste marquée **provisoire** — sa géométrie n'a pas été validée
 contre EN 10055, et les 7 références sont incomplètes (pente et `x_tf` non
-publiés, voir §5.1.1).
+publiés, voir §5.1.1). Les 21 tôles sont incomplètes faute de rayon de pliage
+(§5.1.3).
 
 ### 4.1 Règles de rayon des profilés creux
 
@@ -245,10 +260,11 @@ Chaque référence a été soumise aux contrôles de faisabilité documentés
 (semelle plane > 0, âme plane > 0, trou intérieur > 0, plats extérieurs ≥ 0,
 épaisseur de paroi positive dans l'angle, `h ≥ b`, etc.) :
 
-- **2 231 / 2 238** références passent les contrôles (les 7 T, incomplets, sont
-  contrôlés sur leurs seuls paramètres présents) ;
-- **0** géométrie infaisable parmi les références complètes, **14** paramètres
-  manquants (7 pentes et 7 `x_tf`, tous déclarés par la source).
+- **2 231 / 2 259** références passent les contrôles (les 7 T et les 21 tôles,
+  incomplets, sont contrôlés sur leurs seuls paramètres présents) ;
+- **0** géométrie infaisable parmi les références complètes, **45** paramètres
+  manquants (7 pentes, 7 `x_tf` et 31 cotes de tôles, tous déclarés par la
+  source).
 
 C'est un contrôle de cohérence, pas une validation normative : il vérifie que la
 géométrie est *constructible*, pas qu'elle est *conforme à la norme*.
@@ -262,12 +278,13 @@ géométrie est *constructible*, pas qu'elle est *conforme à la norme*.
 | Manque | Impact | Références concernées |
 |---|---|---|
 | Profilés **T** reconstructibles | dimensions commerciales présentes (7 tailles), mais pente et `x_tf` non publiées : géométrie non constructible | 7 incomplètes |
+| **Tôles** reconstructibles | pas, profondeur et plateaux publiés pour 4 produits, mais **aucun rayon de pliage** ; 3 formes à nervures, sommet arrondi ou sans coupe | 21 incomplètes |
 | **T 100×100×11** (§1) | hors gamme du catalogue, qui s'arrête à T 80 | 0 |
 | Séries **IPE A / AA / O / V** | §3.1 les demande « lorsque documentées » | 0 |
 | Série **HE C** | dont la section 320 × 305, souvent appelée à tort « HEM 320/305 » | 0 |
 | **HEM 320/305** | n'existe pas : appartient à HE C (HE 300 C) | 0 |
 | **Cornière L 80×60×8** (§1) | absente des 39 cornières inégales, qui contiennent 80×40×8 | 0 |
-| **Vérification normative** | aucune référence contrôlée contre une copie licite | 2 238 |
+| **Vérification normative** | aucune référence contrôlée contre une copie licite | 2 259 |
 
 Les manques « carrés pleins », « ronds pleins » et « petits plats », qui
 figuraient ici dans la version précédente, sont **couverts** par le programme
@@ -338,11 +355,24 @@ déclarer de norme, doit citer son programme (`commercial_ref`), reçoit une ano
 commerciale n'est donc jamais confondue avec une référence normalisée, même quand
 sa géométrie est exacte.
 
+#### 5.1.3 Tôles de couverture et bardage — cotes partielles, aucun rayon
+
+La page 126 du catalogue 2020 publie sept produits de tôle profilée. Le dessin
+donne le pas, la profondeur et les plateaux de quatre d'entre eux, mais **aucun
+rayon de pliage**. Trois produits ne sont de surcroît pas des trapèzes simples :
+nervures non cotées (`3.333.39T`, `3.45.1000TS`), sommet arrondi et plateau bas
+non coté (`3.283.29T`), aucune coupe cotée (`4.265.27B`). Le `FRÉQUENCE 13.18T`
+est une onde sinusoïdale, non représentable exactement par des segments et des
+arcs. Les 21 références sont importées, `incomplete`, et cinq séries portent en
+plus un blocage `UNDIMENSIONED_FEATURE`. Détail : `docs/sources.md` §13.
+
 ### 5.2 Manques de données par référence
 
-Sept références sont incomplètes, toutes dans `AM-TES` : `slope_pct` et `x_tf`
-manquent à chaque fois (14 valeurs NULL, déclarées par la source). Aucune autre
-référence n'a de paramètre obligatoire manquant.
+Vingt-huit références sont incomplètes : les 7 `AM-TES` (`slope_pct` et `x_tf`
+manquent à chaque fois, 14 valeurs NULL déclarées par la source) et les 21 tôles
+(`r` manque partout sauf pour la sinusoïde, plus `trough` pour le 3.283.29T et
+toutes les cotes du 4.265.27B — 31 valeurs NULL). Aucune autre référence n'a de
+paramètre obligatoire manquant.
 
 Deux références normalisées sont explicitement **exclues par la source** car
 infaisables avec la règle de rayon : `RHS 80x40x11` et `RHS 80x40x12.5` (plat
@@ -352,16 +382,17 @@ intérieur négatif). Les intégrer exigerait un `ri` explicite documenté.
 
 | Donnée demandée au §4 / §6 | État |
 |---|---|
-| Dimensions nominales | **présentes**, 2 238 / 2 238 |
-| Rayons de congé | présents, déduits d'une règle, ou sans objet (formes pleines) — 2 238 / 2 238 |
-| Épaisseurs | présentes pour 2 141 références : `t` (1 649 normalisées + 342 plats commerciaux) ou `tw`/`tf` (143 normalisées + 7 T) ; les 97 ronds et carrés sont définis par `D` ou `a` |
-| **Tolérances** | **absentes, 0 / 2 238** |
-| **Édition de la norme** | présente au niveau des 16 séries normalisées, **pas par référence** ; sans objet pour les 5 séries commerciales |
+| Dimensions nominales | **présentes**, 2 259 / 2 259 |
+| Rayons de congé | présents, déduits d'une règle, ou sans objet (formes pleines) — 2 259 / 2 259 |
+| Épaisseurs | présentes pour 2 162 références : `t` (1 649 normalisées + 342 plats commerciaux + 21 tôles) ou `tw`/`tf` (143 normalisées + 7 T) ; les 97 ronds et carrés sont définis par `D` ou `a` |
+| **Tolérances** | **absentes, 0 / 2 259** |
+| **Édition de la norme** | présente au niveau des 16 séries normalisées, **pas par référence** ; sans objet pour les 12 séries commerciales |
 | **Source primaire par valeur** | **absente** : provenance au niveau série seulement |
 | **Date de vérification** | **aucune** (`verified = 0` partout) |
-| Masse linéique indépendante | publiée par le fabricant pour les 446 commerciales, mais stockée `independent = 0` ; recalculée pour les 1 792 normalisées |
+| Masse linéique indépendante | publiée par le fabricant pour les 467 commerciales, mais stockée `independent = 0` ; recalculée pour les 1 792 normalisées. Les tôles publient une masse **surfacique** (`mass_area`, kg/m²) |
 | **Liste des tailles de plats / carrés / ronds** | **fournie** par le catalogue commercial (`AM-*`), catégorie distincte ; aucune liste normative |
 | **Pente et `x_tf` des T** | **absents** : les 7 T commerciaux sont incomplets et bloqués |
+| **Rayon de pliage des tôles** | **absent** : les 21 tôles sont incomplètes ; 5 séries sont en plus bloquées par leur forme |
 
 Le point le plus structurant reste la **provenance ligne à ligne** : la base sait
 que `IPE 200` vient du fichier `data/ipe/IPE.csv` de Steel Section Database, mais
@@ -388,6 +419,8 @@ blocage de Phase 2.
 | `Carré 5` | masse imprimée 0,126 kg/m incohérente (0,196 attendu) ; côté 5 confirmé par `A = 0,25 cm²` |
 | 17 plats `AM-PLATS` | 12 coquilles de surface et 6 de masse, dont 1 ligne (80x35) cumulant les deux ; consignées en note, valeurs fautives non recopiées |
 | `Large plat 250x12` | surface imprimée 0,54 m²/m au lieu de 0,524 ; dimensions confirmées par la masse 23,55 kg/m |
+| Tôles `TRAPEZA®` | aucun rayon de pliage publié ; 3 produits portent des nervures non cotées, 1 n'a aucune coupe cotée |
+| `FRÉQUENCE 13.18T` | onde sinusoïdale, non représentable exactement par segments et arcs ; refus explicite |
 
 ---
 
@@ -411,8 +444,8 @@ Synthèse (détail dans `docs/licenses.md`) :
 Conséquence pratique : la **base publiable** (1 792 références, reconstruite avec
 `data/staging/` vide) est redistribuable, à condition de joindre la licence MIT de
 la source et sa mention de copyright — c'est l'objet de
-`THIRD-PARTY-NOTICES.md`. En revanche, la **base de travail** (2 238 références)
-contient les 446 références commerciales et n'est **pas** redistribuable telle
+`THIRD-PARTY-NOTICES.md`. En revanche, la **base de travail** (2 259 références)
+contient les 467 références commerciales et n'est **pas** redistribuable telle
 quelle. Aucune donnée de Constructalia, Ahan Assa, CADXChange, theolternative,
 Montanstahl, Lechner, Dlubal ou BSSA n'est présente dans la base. Les séries de
 `data/staging/` et le PDF ArcelorMittal ne sont jamais livrés.
@@ -421,8 +454,8 @@ Montanstahl, Lechner, Dlubal ou BSSA n'est présente dans la base. Les séries d
 
 ## 7. Schéma SQLite
 
-Base : `data/profiles.db` — 2 238 profils, 8 248 paramètres, 2 600 alias,
-55 098 propriétés dérivées. `PRAGMA integrity_check` et `PRAGMA foreign_key_check`
+Base : `data/profiles.db` — 2 259 profils, 8 368 paramètres, 2 600 alias,
+55 119 propriétés dérivées. `PRAGMA integrity_check` et `PRAGMA foreign_key_check`
 sont propres.
 
 ### 7.1 Tables
@@ -431,16 +464,16 @@ sont propres.
 |---|---|---|
 | `source` | provenance documentaire, licence, droit de redistribution | 6 |
 | `standard` | norme, édition, statut, indicateur de vérification | 14 |
-| `family` | les 7 familles du §3 | 7 |
-| `shape` | formes géométriques et générateur prévu (Phase 2) | 13 |
-| `param_def` | paramètres obligatoires par forme | 58 |
-| `series` | série = un fichier de données, avec norme, procédé, règle de rayon, **catégorie** | 21 |
+| `family` | les 8 familles du §3 | 8 |
+| `shape` | formes géométriques et générateur prévu (Phase 2) | 15 |
+| `param_def` | paramètres obligatoires par forme | 67 |
+| `series` | série = un fichier de données, avec norme, procédé, règle de rayon, **catégorie** | 28 |
 | `corner_radius_rule` / `corner_radius_band` | règles de rayon des creux, par bande d'épaisseur | 2 / 4 |
-| `profile` | une ligne par référence, avec statut et provenance | 2 238 |
-| `profile_param` | géométrie primaire, une ligne par paramètre | 8 248 |
+| `profile` | une ligne par référence, avec statut et provenance | 2 259 |
+| `profile_param` | géométrie primaire, une ligne par paramètre | 8 368 |
 | `profile_alias` | désignations alternatives pour la recherche | 2 600 |
-| `derived_property` | A, I, W, masse… **dérivées**, `independent = 0` | 55 098 |
-| `catalog_issue` | anomalies, manques et réserves | 63 |
+| `derived_property` | A, I, W, masse… **dérivées**, `independent = 0` | 55 119 |
+| `catalog_issue` | anomalies, manques et réserves | 108 |
 
 ### 7.2 Vues
 
@@ -540,15 +573,16 @@ exactement en Phase 2 », pas « vérifié conforme à la norme ».
 | T | AM-TES | 1 | 7 | **0** | 7 |
 | Creux | SHS-HF/CF, RHS-HF/CF, CHS-HF/CF | 0 | 1 506 | **1 506** | 0 |
 | Pleins | FLAT, AM-PLATS, AM-LARGES-PLATS, AM-CARRES, AM-RONDS | 4 | 501 | **501** | 0 |
-| **Total** | **21** | **5** | **2 238** | **2 231** | **7** |
+| Couverture et bardage | 7 séries TRAPEZA® / FRÉQUENCE | 7 | 21 | **0** | 21 |
+| **Total** | **28** | **12** | **2 259** | **2 231** | **28** |
 
 Ventilation par régime :
 
 | Régime | Séries | Références | Exploitables | Incomplètes |
 |---|---|---|---|---|
 | normalisé (MIT) | 16 | 1 792 | **1 792** | 0 |
-| commercial (ArcelorMittal 2020) | 5 | 446 | **439** | 7 |
-| **Total** | **21** | **2 238** | **2 231** | **7** |
+| commercial (ArcelorMittal 2020) | 12 | 467 | **439** | 28 |
+| **Total** | **28** | **2 259** | **2 231** | **28** |
 
 Détail par série :
 
@@ -575,6 +609,13 @@ Détail par série :
 | AM-PLATS | commercial | 288 | 288 | — | 0 |
 | AM-LARGES-PLATS | commercial | 54 | 54 | — | 0 |
 | AM-TES | commercial | 7 | **0** | 7 | 0 |
+| AM-TRAPEZA-33339 | commercial | 4 | **0** | 4 | 0 |
+| AM-TRAPEZA-3451000 | commercial | 4 | **0** | 4 | 0 |
+| AM-TRAPEZA-28329 | commercial | 4 | **0** | 4 | 0 |
+| AM-TRAPEZA-17525 | commercial | 3 | **0** | 3 | 0 |
+| AM-TRAPEZA-1008 | commercial | 2 | **0** | 2 | 0 |
+| AM-TRAPEZA-26527 | commercial | 2 | **0** | 2 | 0 |
+| AM-FREQUENCE-1318 | commercial | 2 | **0** | 2 | 0 |
 
 ### Formes peuplées uniquement par le commercial
 
@@ -583,9 +624,11 @@ Détail par série :
 | `ROUND` | D | 69 | complet, catégorie commerciale |
 | `SQUARE` | a | 28 | complet, catégorie commerciale |
 | `T_TAPERED` | h, b, tw, tf, r1, r2, slope_pct, x_tf | 7 | `incomplete` : `slope_pct` et `x_tf` non publiés ; modèle **provisoire** (§5.1.1) |
+| `TRAPEZOIDAL` | pitch, depth, crest, trough, t, r | 19 | `incomplete` : `r` non publié ; 3 séries bloquées par des nervures ou un sommet arrondi (§5.1.3) |
+| `SINUSOIDAL` | pitch, depth, t | 2 | `incomplete` : forme non représentable exactement (§5.1.3) |
 
-Ces trois formes sont importables depuis `data/staging/` sans modification du
-code ; elles ne contiennent aucune référence normalisée.
+Ces formes sont importables depuis `data/staging/` sans modification du code ;
+elles ne contiennent aucune référence normalisée.
 
 ### Couverture des exemples du cahier des charges (§1)
 
@@ -617,15 +660,15 @@ sont la cornière `L 80×60×8` et le `T 100×100×11`.
 
 ### 9.1 Limites de confiance (les plus importantes)
 
-1. **Aucune vérification normative.** `verified = 0` pour les 2 238 références.
+1. **Aucune vérification normative.** `verified = 0` pour les 2 259 références.
    Le dépôt source l'annonce lui-même : les dimensions n'ont pas été contrôlées
    ligne à ligne contre des copies licites des normes. La base ne peut donc pas
    prétendre à une conformité EN, seulement à une « géométrie documentée ».
 2. **Deux sources, deux niveaux de contrôle.** Les 1 792 références normalisées
-   reposent sur un dépôt unique, sans recoupement indépendant. Les 446
+   reposent sur un dépôt unique, sans recoupement indépendant. Les 467
    commerciales sont, elles, recoupées par deux colonnes dérivées du fabricant
-   (masse, surface) — mais ces colonnes proviennent du même document, pas d'une
-   source tierce.
+   (masse, surface, ou masse surfacique pour les tôles) — mais ces colonnes
+   proviennent du même document, pas d'une source tierce.
 3. **Provenance au niveau série, pas par valeur.** Voir §5.3.
 4. **Éditions non vérifiées.** EN 10365:2017 est remplacée par 2026 ; l'écart
    n'est pas évalué. Même situation pour EN 10056-1 (1998 → 2017).
@@ -639,6 +682,9 @@ sont la cornière `L 80×60×8` et le `T 100×100×11`.
 - Famille **pleins** : couverte commercialement (plats, ronds, carrés), sans
   aucune référence normalisée hors `FLAT`. Les listes de tailles viennent du
   fabricant, pas de EN 10058/59/60 (§5.1.2).
+- Famille **couverture et bardage** : 21 références commerciales, **0
+  constructible**. Aucun rayon de pliage n'est publié, et cinq séries ne sont pas
+  des trapèzes simples (§5.1.3).
 - Séries **IPE A/AA/O/V**, **HE C** : absentes.
 - `T 100×100×11` et `L 80×60×8` : absents.
 - Deux **RHS-HF** exclues volontairement.
@@ -652,6 +698,10 @@ sont la cornière `L 80×60×8` et le `T 100×100×11`.
 - Le modèle **`T_TAPERED`** n'est pas validé contre EN 10055 : sa reconstruction
   est interdite tant que ce n'est pas fait. Les 7 références importées n'ont ni
   pente ni `x_tf`, et `r3` n'est pas mappé.
+- Le modèle **`TRAPEZOIDAL`** ne décrit qu'une tôle à plateaux plats, sans
+  nervure. Les produits dont le plateau porte des nervures non cotées ou dont le
+  sommet est arrondi restent bloqués, même une fois `r` connu. Une onde
+  **sinusoïdale** n'est pas représentable exactement : le générateur la refuse.
 - **`x_tf` et la pente** sont des paramètres de premier ordre pour UPN/IPN : les
   ignorer fausse l'aire de 0,7 à 1 % (mesuré par la source sur UPN 320 à 400).
   Ils sont présents et doivent être consommés par le générateur.
@@ -678,9 +728,9 @@ sont la cornière `L 80×60×8` et le `T 100×100×11`.
 
 ### Ce qui est prêt
 
-- **2 231 références exploitables** sur 2 238, 21 séries, **7 familles sur 7**
-  couvertes : 1 792 normalisées (16 séries) et 439 commerciales exploitables
-  (4 séries).
+- **2 231 références exploitables** sur 2 259, 28 séries, **8 familles sur 8**
+  couvertes : 1 792 normalisées (16 séries), 439 commerciales exploitables
+  (4 séries) et 21 tôles documentées mais non constructibles.
 - Une base SQLite propre, avec statut et provenance par référence.
 - Une séparation stricte normalisé / commercial (`category`, `commercial_ref`,
   `COMMERCIAL_DATA`, export redistribuable séparé).
@@ -694,9 +744,12 @@ sont la cornière `L 80×60×8` et le `T 100×100×11`.
 
 - La famille **T** : 7 dimensions commerciales, **0 référence reconstructible**
   (pente et `x_tf` non publiés). EN 10055 reste à acquérir.
+- La famille **couverture et bardage** : 21 références documentées, **0
+  référence constructible** (aucun rayon de pliage publié, formes à nervures ou
+  sinusoïdale). Une fiche technique fabricant est requise.
 - Les **ronds et carrés pleins** ne sont couverts que commercialement : aucune
   référence normalisée, aucune liste normative.
-- La **vérification normative** : 0 référence vérifiée sur 2 238.
+- La **vérification normative** : 0 référence vérifiée sur 2 259.
 - La **provenance ligne à ligne** des séries normalisées.
 - Les **tolérances**.
 - La **redistribution** de la base de travail : elle contient les séries
@@ -743,13 +796,16 @@ Une troisième décision conditionne les familles T et pleins :
    446 références sont importées, isolées et non redistribuables. Les manques
    résiduels sont la pente et `x_tf` des T : ils ne peuvent être comblés que par
    une copie licite de EN 10055 (voie a, pour la seule famille T).
+   La page 126 du même catalogue ajoute 21 tôles de couverture et bardage
+   (§13) : importées, isolées, incomplètes faute de rayon de pliage.
 
 ### État après la Phase 2 (30 octobre 2026)
 
 Les cinq étapes recommandées ont été exécutées dans l'ordre, plus les plats,
 ronds et carrés commerciaux : **2 231 profilés complets reconstruits, 0 échec
-géométrique**. Les 7 T restent refusés explicitement, faute de pente et de
-`x_tf`. Détail, conventions et résultats de validation :
+géométrique**. Les 7 T et les 21 tôles restent refusés explicitement, faute de
+pente et de `x_tf` pour les premiers, de rayon de pliage pour les secondes.
+Détail, conventions et résultats de validation :
 [`docs/geometry.md`](geometry.md).
 
 Les deux décisions de licence et de champ `verified` restent ouvertes : le

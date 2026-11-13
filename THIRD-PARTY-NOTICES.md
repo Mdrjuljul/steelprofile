@@ -49,9 +49,10 @@ endossées par l'auteur d'origine.
 
 ## ArcelorMittal — catalogue général 2020 (données locales, non redistribuées)
 
-Cinq séries commerciales (`AM-RONDS` 69, `AM-CARRES` 28, `AM-PLATS` 288,
-`AM-LARGES-PLATS` 54, `AM-TES` 7 — **446 références**) sont dérivées du
-*catalogue général*, ArcelorMittal Distribution Solutions France, édition 2020.
+Douze séries commerciales (`AM-RONDS` 69, `AM-CARRES` 28, `AM-PLATS` 288,
+`AM-LARGES-PLATS` 54, `AM-TES` 7, et 7 séries de tôles totalisant 21 références
+— **467 références**) sont dérivées du *catalogue général*, ArcelorMittal
+Distribution Solutions France, édition 2020.
 
 - Document : `data/sources/Arcelor-Catalogue-Web-2020-avec-liens-bouton-light.pdf`
   (21 608 979 octets, SHA-256
@@ -112,6 +113,6 @@ conditions sont déclarées dans le TOML de chaque série (`source_name`,
 base. Elles ne sont **jamais** incluses dans l'export redistribuable.
 
 En conséquence, `data/profiles.db` **tel que construit avec le dépôt local** n'est
-pas redistribuable : il contient les 446 références commerciales. La base
+pas redistribuable : il contient les 467 références commerciales. La base
 publiable se reconstruit avec un répertoire `data/staging/` vide (1 792
 références, `check_catalogue.py --publish`).

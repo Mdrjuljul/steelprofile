@@ -4,10 +4,12 @@ Générateur local de profilés métalliques normalisés européens.
 Application de bureau, 100 % hors ligne, consacrée à la **géométrie exacte** des
 sections : recherche, consultation, reconstruction, export CAO/3D.
 
-> État : **Phase 4 terminée** — catalogue, moteur de géométrie exacte, exports
-> CAO/3D (DXF, STEP exact, STL, OBJ, GLB) et interface de bureau PySide6.
-> Le moteur et les exports restent utilisables sans Qt, et `verified` reste
-> `false` partout.
+> État : **Phases 1 à 4 terminées** — catalogue, moteur de géométrie exacte,
+> exports CAO/3D (DXF, STEP exact, STL, OBJ, GLB) et interface de bureau PySide6.
+> La famille **Couverture et bardage** (tôles trapézoïdales) est importée depuis
+> le catalogue commercial local, mais reste volontairement `incomplete` : aucun
+> rayon de pliage n'est publié. Le moteur et les exports restent utilisables sans
+> Qt, et `verified` reste `false` partout.
 
 ## Démarrage rapide
 
@@ -38,14 +40,14 @@ ce qui manque. Voir [`app/database/bootstrap.py`](app/database/bootstrap.py).
 
 | Élément | État |
 |---|---|
-| Catalogue SQLite (base locale complète) | 2 238 références, 21 séries, 7 familles sur 7 |
+| Catalogue SQLite (base locale complète) | 2 259 références, 28 séries, 8 familles sur 8 |
 | dont normalisé (MIT, livré et publié) | 1 792 références, 16 séries |
-| dont commercial local | 446 références, 5 séries, jamais redistribuées |
+| dont commercial local | 467 références, 12 séries, jamais redistribuées |
 | Catalogue d'un clone | 1 792 références normalisées, construit au premier lancement |
 | Séparation normalisé / commercial | `series.category`, garantie à l'import (§3.7) |
 | Analyse des sources | 11 pistes examinées, 1 source normalisée + 1 catalogue fabricant local |
 | Licences | tranchées, redistribution encadrée |
-| Moteur géométrique | 2 231 profilés complets reconstruits, 0 échec ; 7 T refusés (données manquantes) |
+| Moteur géométrique | 2 231 profilés complets reconstruits, 0 échec ; 28 incomplets (7 T, 21 tôles) |
 | Exports | DXF et STEP exacts, STL, OBJ, GLB — 5 formats, bibliothèque standard seule |
 | Interface | PySide6 : catalogue, recherche, aperçu exact, propriétés, export |
 
@@ -65,13 +67,22 @@ Les rapports détaillés sont dans [`docs/catalogue.md`](docs/catalogue.md) (Pha
 | T | Tés (gamme commerciale) | 7 | 7 |
 | Creux | SHS, RHS, CHS (finis à chaud et formés à froid) | 1 506 | 0 |
 | Pleins | plats, ronds, carrés | 501 | 439 |
-| **Total** | **21 séries** | **2 238** | **446** |
+| Couverture et bardage | 7 lignes TRAPEZA® / FRÉQUENCE | 21 | 21 |
+| **Total** | **28 séries** | **2 259** | **467** |
 
 Les 7 T sont importés mais **incomplets** : le catalogue ne publie ni la pente
 des semelles ni la position de mesure de `tf`, donc aucune géométrie n'est
 reconstructible. Les plats, ronds et carrés sont couverts par le programme
 commercial, avec une géométrie exacte par désignation, mais hors du champ
 normalisé. Voir `docs/sources.md` §11 et §12.
+
+Les 21 tôles sont également **incomplètes** : le catalogue ne publie aucun rayon
+de pliage. Deux produits sont des trapèzes simples et deviendront constructibles
+dès qu'un rayon documenté sera fourni (`6.175.25B/HB`, `11.100.8B`). Les autres
+sont bloqués pour un motif de forme : nervures non cotées (`3.333.39T`,
+`3.45.1000TS`, `3.283.29T`), absence de coupe cotée (`4.265.27B`) ou onde
+sinusoïdale non représentable exactement (`FRÉQUENCE 13.18T`). Voir
+`docs/sources.md` §13.
 
 ## Données locales (`data/staging/`)
 
@@ -89,10 +100,11 @@ commerciale se déclare en outre `category = "commercial"` avec un
 `commercial_ref` obligatoire : elle n'est jamais confondue avec une référence
 normalisée (§3.7).
 
-Le dépôt local actuel contient le **catalogue ArcelorMittal 2020** (5 séries,
-446 références) : ronds, carrés, plats, larges plats et Tés. Le PDF source reste
-dans `data/sources/` mais n'est pas redistribuable, et la base de travail
-construite avec ce dépôt ne l'est pas non plus. Contrat de fichier :
+Le dépôt local actuel contient le **catalogue ArcelorMittal 2020** (12 séries,
+467 références) : ronds, carrés, plats, larges plats, Tés et tôles de couverture
+et bardage. Le PDF source reste dans `data/sources/` mais n'est pas
+redistribuable, et la base de travail construite avec ce dépôt ne l'est pas non
+plus. Contrat de fichier :
 [`data/staging/README.md`](data/staging/README.md).
 
 ## Base de données
@@ -111,7 +123,7 @@ Le script n'utilise que la bibliothèque standard (Python ≥ 3.11 pour `tomllib
 Il lit les tables de `data/sources/Steel_Section_Database-main/` et, si présent,
 le dépôt `data/staging/`, puis réécrit :
 
-- `data/profiles.db` — la base de travail (2 238 références) ;
+- `data/profiles.db` — la base de travail (2 259 références) ;
 - `data/catalogue_inventory.csv` — le catalogue à plat ;
 - `data/catalogue_stats.json` — comptages et anomalies ;
 - `data/catalogue_inventory_redistributable.csv` — uniquement si des séries
@@ -167,7 +179,8 @@ print(properties.catalogue_values()["Iy"], "cm4")
 Résultat : 2 231 profilés reconstruits (1 792 normalisés + 439 commerciaux),
 aucun échec géométrique ; l'erreur relative maximale sur les séries normalisées
 est de `4,87 × 10⁻⁶`. Les 7 T restent non constructibles faute de pente de
-semelle et d'abscisse `x_tf` (EN 10055).
+semelle et d'abscisse `x_tf` (EN 10055) ; les 21 tôles faute de rayon de pliage
+et, pour cinq séries, parce que leur forme réelle n'est pas un trapèze simple.
 
 ## Exports (`app/exports/`)
 

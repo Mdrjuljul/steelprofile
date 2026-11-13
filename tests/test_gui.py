@@ -59,7 +59,11 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(totals["profiles"],
                          totals["complete"] + totals["incomplete"])
         families = self.catalogue.families()
-        self.assertEqual(len(families), 7)
+        self.assertEqual(len(families), 8)
+        cover = next(f for f in families if f.family_id == "COVER")
+        self.assertEqual(cover.complete_count, 0)
+        if cover.profile_count:
+            self.assertEqual(cover.profile_count, 21)
         self.assertEqual(sum(f.profile_count for f in families),
                          totals["profiles"])
         self.assertEqual(sum(f.complete_count for f in families),
@@ -84,6 +88,37 @@ class CatalogueTests(unittest.TestCase):
             self.assertTrue(tes.is_commercial)
             self.assertEqual(tes.profile_count, 7)
             self.assertEqual(tes.complete_count, 0)
+
+    def test_cover_sheets_keep_declared_gaps(self) -> None:
+        cover_series = [s for s in self.catalogue.series() if s.family_id == "COVER"]
+        if not cover_series:
+            self.skipTest("catalogue standard seul : aucune série COVER locale")
+        rows = [row for series in cover_series
+                for row in self.catalogue.profiles(series_id=series.series_id)]
+        self.assertEqual(len(rows), 21)
+        self.assertTrue(all(not row.is_complete for row in rows))
+
+        # Produit coté et trapézoïdal simple : toutes les cotes sauf le rayon.
+        detail = self.catalogue.detail("AM-TRAPEZA-1008/TRAPEZA 11.100.8B e0,63")
+        dimensions = {d.param: d.value for d in detail.dimensions}
+        self.assertEqual(dimensions["pitch"], 100.0)
+        self.assertEqual(dimensions["depth"], 7.5)
+        self.assertEqual(dimensions["crest"], 55.0)
+        self.assertEqual(dimensions["trough"], 30.0)
+        self.assertIsNone(dimensions["r"])
+        self.assertIn("r", detail.missing)
+        self.assertIsNone(detail.section)
+        self.assertFalse(any(i.code == "UNDIMENSIONED_FEATURE" for i in detail.issues))
+
+        # Produit à nervures non cotées : blocage de forme explicite.
+        ribbed = self.catalogue.detail(
+            "AM-TRAPEZA-33339/TRAPEZA 3.333.39T e0,63")
+        self.assertTrue(any(i.code == "UNDIMENSIONED_FEATURE" for i in ribbed.issues))
+        self.assertIsNone(ribbed.section)
+
+        # Onde sinusoïdale : refus explicite, aucune approximation.
+        sine = self.catalogue.detail("AM-FREQUENCE-1318/FRÉQUENCE 13.18T e0,63")
+        self.assertTrue(any(i.code == "UNDIMENSIONED_FEATURE" for i in sine.issues))
 
     def test_search_key_normalises_accents_and_spaces(self) -> None:
         self.assertEqual(search_key("ipé 200"), "IPE200")

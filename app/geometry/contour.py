@@ -304,6 +304,16 @@ class ContourBuilder:
         self._point = end
         return self
 
+    @property
+    def primitives(self) -> tuple[Primitive, ...]:
+        """Primitives déjà tracées, dans l'ordre, sans fermeture implicite.
+
+        Permet de composer un contour à partir de plusieurs tracés (par exemple
+        la face extérieure et la face intérieure d'une tôle) sans passer par des
+        attributs privés.
+        """
+        return tuple(self._pieces)
+
     def arc(self, sweep_deg: float, radius: float) -> "ContourBuilder":
         if radius < 0.0:
             raise GeometryError(f"rayon d'arc négatif : {radius}")

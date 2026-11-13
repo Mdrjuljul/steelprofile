@@ -158,9 +158,10 @@ reste donc identifiée comme telle dans toutes les vues et tous les exports.
 
 ### Cas concret : catalogue ArcelorMittal 2020
 
-Cinq séries commerciales (`AM-RONDS` 69, `AM-CARRES` 28, `AM-PLATS` 288,
-`AM-LARGES-PLATS` 54, `AM-TES` 7 — **446 références**) sont importées depuis ce
-catalogue. Le TOML de chaque série déclare :
+Douze séries commerciales (`AM-RONDS` 69, `AM-CARRES` 28, `AM-PLATS` 288,
+`AM-LARGES-PLATS` 54, `AM-TES` 7, et 7 séries de tôles totalisant 21 références
+— **467 références**) sont importées depuis ce catalogue. Le TOML de chaque
+série déclare :
 
 ```toml
 source_id = "arcelormittal-catalogue-2020"
@@ -172,10 +173,10 @@ redistribution = "restricted"
 Conséquences, toutes vérifiées par `app/database/check_catalogue.py` :
 
 - `source.usage = 'local_only'` et `source.redistribution = 'restricted'` ;
-- anomalie `LOCAL_ONLY_DATA` sur chacune des cinq séries ;
+- anomalie `LOCAL_ONLY_DATA` sur chacune des douze séries ;
 - `standard_id` **NULL** partout (les intitulés EN du catalogue ne sont pas des
   références vérifiées) ;
-- **aucune** des 446 références dans
+- **aucune** des 467 références dans
   `catalogue_inventory_redistributable.csv` ;
 - le PDF lui-même n'est pas redistribuable : il ne doit pas être joint à une
   publication du projet.
@@ -224,8 +225,8 @@ bibliothèque. Le projet ne fournit pas un tel exécutable. Voir
 | Rayons d'angle des creux | règle EN 10210-2 / EN 10219-2, recalculée | oui (règle de calcul, pas un tableau) |
 | 53 760 propriétés dérivées | recalculées par le dépôt (MIT) | oui, avec notice — **et non indépendantes** |
 | Désignations et éditions de normes | faits | oui (citation) |
-| **446 références commerciales** (`AM-*`) | catalogue ArcelorMittal 2020 | **non** — absentes de l'export redistribuable |
-| **453 alias et 1 338 propriétés dérivées commerciales** | mêmes séries | **non** |
+| **467 références commerciales** (`AM-*`) | catalogue ArcelorMittal 2020 | **non** — absentes de l'export redistribuable |
+| **453 alias et 1 359 propriétés dérivées commerciales** | mêmes séries | **non** |
 | Séries locales (`data/staging`) | selon la source déclarée | **non** — exclues de l'export redistribuable |
 | Tolérances | — | non présentes |
 | Fichiers CAO / DXF | — | aucun dans la base ; les exports sont générés à la demande (voir `docs/exports.md`) |
@@ -234,7 +235,7 @@ Aucune donnée issue de Constructalia, Ahan Assa, CADXChange, theolternative,
 Montanstahl, Lechner, Dlubal ou BSSA n'est présente dans la base. Aucune donnée de
 `data/staging/` n'est livrée avec le projet.
 
-La base de travail (`data/profiles.db`, 2 238 références) contient les séries
+La base de travail (`data/profiles.db`, 2 259 références) contient les séries
 commerciales ; elle **n'est donc pas redistribuable telle quelle**. La base
 publiable se reconstruit avec un répertoire `data/staging/` vide : 1 792
 références, 6 sources, aucune série commerciale, aucun PDF fabricant.

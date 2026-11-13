@@ -7,9 +7,12 @@ vérifient.
 
 > État : **Phase 2 terminée pour les 2 231 profilés complets** (1 792 normalisés
 > + 439 commerciaux). Les 7 profilés T restent non constructibles faute de pente
-> de semelle et d'abscisse `x_tf` (EN 10055). Aucune géométrie n'est déclarée
-> « vérifiée » au sens normative : la validation porte sur la cohérence interne
-> et sur les valeurs publiées de la base.
+> de semelle et d'abscisse `x_tf` (EN 10055). Les 21 tôles de couverture et
+> bardage sont importées mais **incomplètes** : le catalogue ne publie aucun
+> rayon de pliage, et plusieurs formes ne sont pas des trapèzes simples (nervures,
+> sommet arrondi, sinusoïde). Aucune géométrie n'est déclarée « vérifiée » au sens
+> normative : la validation porte sur la cohérence interne et sur les valeurs
+> publiées de la base.
 
 ## 1. Fichiers
 
@@ -72,6 +75,7 @@ pour que les valeurs publiées soient comparables sans transformation :
 | `RHS`, `SHS`, `CHS` | centre de la section | y vers +y, z vers le haut |
 | `FLAT` | centre | largeur `b` selon z, épaisseur `t` selon y (« sur chant ») |
 | `ROUND`, `SQUARE` | centre | — |
+| `TRAPEZOIDAL` | centre du plateau haut en `y = 0`, face extérieure du creux en `z = 0` | symétrie du module selon y |
 
 Conséquences vérifiées :
 
@@ -101,6 +105,8 @@ Conséquences vérifiées :
 | `ROUND` | `round_bar` | `D` |
 | `SQUARE` | `square_bar` | `a` |
 | `T_TAPERED` | `t_tapered` (refus explicite) | `h, b, tw, tf, r1, r2, slope_pct, x_tf` |
+| `TRAPEZOIDAL` | `trapezoidal_sheet` | `pitch, depth, crest, trough, t, r` |
+| `SINUSOIDAL` | `sinusoidal_sheet` (refus explicite) | `pitch, depth, t` |
 
 Règles de construction :
 
@@ -116,6 +122,42 @@ Règles de construction :
   lorsqu'ils ne sont pas tabulés (origine `series_rule`) ;
 - **pleins** : rectangle, disque ou carré exacts, sans congé non documenté.
 
+### Tôle trapézoïdale (`TRAPEZOIDAL`)
+
+Un module couvre **un pas**. Les paramètres sont le pas `pitch`, la profondeur
+`depth`, les largeurs de plateau haut `crest` et bas `trough` mesurées entre les
+**intersections théoriques** avant congés, l'épaisseur `t` et le rayon de pliage
+**extérieur** `r`.
+
+```text
+course   = (pitch − crest − trough) / 2
+α        = atan2(depth, course)
+tangente = r · tan(α / 2)
+âme      = hypot(course, depth) − 2 · tangente
+```
+
+L'angle des âmes n'est pas un paramètre libre : il découle du pas, de la
+profondeur et des plateaux. Les quatre plis sont des arcs de cercle vrais,
+tangents aux segments. La face extérieure du creux est en `z = 0`, la matière est
+dessous ; la face intérieure est l'offset exact à la distance `t`, avec des arcs
+concentriques de rayon `r + t` dans les creux et `r − t` aux sommets. Le module
+est centré sur `y = 0` : plateau haut au milieu, deux demi-creux sur les bords.
+Les deux bords libres sont des coupes droites, perpendiculaires au plateau bas.
+
+Contrôles refusés par le générateur : `r ≤ t` (rayon intérieur négatif au
+sommet), `pitch − crest − trough ≤ 0`, plateau ou âme entièrement consommé par
+les congés.
+
+La masse surfacique se déduit de l'aire du module :
+`kg/m² = 7,85 × A [mm²] / pitch [mm]`. Elle n'est pas stockée comme une masse
+linéaire : la propriété publiée est `mass_area` (unité `kg/m2`).
+
+Une **sinusoïde** n'est pas une suite de segments et d'arcs : `SINUSOIDAL`
+refuse explicitement la construction au lieu de l'approximer. Les tôles à
+nervures non cotées ou à sommet arrondi sont également bloquées, même lorsque
+leurs cotes de plateau sont publiées : le modèle trapézoïdal simple ne décrit
+pas la tôle réelle.
+
 Aucun générateur ne remplit une valeur manquante. `build_profile()` refuse un
 profilé `incomplete` ou dont un paramètre requis est `NULL`.
 
@@ -125,8 +167,10 @@ Deux niveaux :
 
 1. **Tests unitaires** (`python -m unittest discover -s tests`) : rectangle,
    disque, anneau, quart de disque, section I sans congé, section U sans congé,
-   cornière, tube, plat, rond, carré, équivalence I / I_TAPERED à pente nulle,
-   conventions de modules et d'unités. 33 tests, tous verts.
+   cornière, tube, plat, rond, carré, module trapézoïdal (centrage, aire, angle,
+   refus des rayons impossibles), refus explicite de la sinusoïde, équivalence
+   I / I_TAPERED à pente nulle, conventions de modules et d'unités. 93 tests,
+   tous verts.
 2. **Vérification sur la base** (`python -m app.geometry.verify`) : chaque
    profilé complet est reconstruit, puis comparé aux valeurs publiées de
    `derived_property` : `A, ys, zs, Iy, Iz, Iyz, Iu, Iv, alpha, i_y, i_z, i_u,
@@ -149,6 +193,10 @@ Résultat au 30 octobre 2026 :
 | Normalisées | 1 792 | 0 | `4,87 × 10⁻⁶` |
 | Commerciales | 439 | 0 | `4,44 × 10⁻³` (A, arrondi catalogue) |
 | **Total** | **2 231** | **0** | — |
+
+Les 28 références `incomplete` (7 T et 21 tôles) ne figurent pas dans ce tableau :
+aucune section n'est construite pour elles, et `verify` les refuse explicitement
+au lieu de les comparer à une géométrie inventée.
 
 L'erreur maximale des séries normalisées (`4,87 × 10⁻⁶`, CHS-CF 168,3×6 sur
 `Iy`/`Iz`) est celle de l'arrondi des valeurs publiées, pas du moteur : les

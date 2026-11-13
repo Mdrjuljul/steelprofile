@@ -27,13 +27,45 @@ PUBLISH = "--publish" in ARGS
 DB = Path(ARGS[ARGS.index("--db") + 1]) if "--db" in ARGS else Path("data/profiles.db")
 DATA = DB.parent
 
-# Séries commerciales locales : (profils, paramètres par profil, alias par profil).
+# Séries commerciales locales : (profils, paramètres par profil, alias par profil,
+# propriétés dérivées par profil).
 COMMERCIAL = {
-    "AM-RONDS": (69, 1, 1),
-    "AM-CARRES": (28, 1, 1),
-    "AM-PLATS": (288, 2, 1),
-    "AM-LARGES-PLATS": (54, 2, 1),
-    "AM-TES": (7, 8, 2),
+    "AM-RONDS": (69, 1, 1, 3),
+    "AM-CARRES": (28, 1, 1, 3),
+    "AM-PLATS": (288, 2, 1, 3),
+    "AM-LARGES-PLATS": (54, 2, 1, 3),
+    "AM-TES": (7, 8, 2, 3),
+}
+# Tôles de couverture et bardage : toutes `incomplete` (rayon de pliage non publié,
+# nervures non cotées, ou onde sinusoïdale). Une seule propriété publiée : la masse
+# surfacique (`mass_area`).
+COVER = {
+    "AM-TRAPEZA-33339": (4, 6, 0, 1),
+    "AM-TRAPEZA-3451000": (4, 6, 0, 1),
+    "AM-TRAPEZA-28329": (4, 6, 0, 1),
+    "AM-TRAPEZA-26527": (2, 6, 0, 1),
+    "AM-TRAPEZA-17525": (3, 6, 0, 1),
+    "AM-TRAPEZA-1008": (2, 6, 0, 1),
+    "AM-FREQUENCE-1318": (2, 3, 0, 1),
+}
+LOCAL = {**COMMERCIAL, **COVER}
+# Profils dont au moins un paramètre requis est absent de la source.
+COVER_MISSING_PROFILES = {
+    "AM-TRAPEZA-33339": 4,
+    "AM-TRAPEZA-3451000": 4,
+    "AM-TRAPEZA-28329": 4,
+    "AM-TRAPEZA-26527": 2,
+    "AM-TRAPEZA-17525": 3,
+    "AM-TRAPEZA-1008": 2,
+}
+# Paramètres requis NULL dans les tôles : r partout sauf FRÉQUENCE, + trough pour
+# le 3.283.29T et pitch/depth/crest/trough pour le 4.265.27B.
+COVER_MISSING_PARAMS = 31
+# Séries dont la forme elle-même n'est pas constructible (nervures, sommet
+# arrondi, absence de coupe, sinusoïde).
+COVER_BLOCKED = {
+    "AM-TRAPEZA-33339", "AM-TRAPEZA-3451000", "AM-TRAPEZA-28329",
+    "AM-TRAPEZA-26527", "AM-FREQUENCE-1318",
 }
 
 con = sqlite3.connect(DB)
@@ -52,15 +84,18 @@ commercial = dict(cur.execute(
     "SELECT s.series_id, COUNT(p.profile_id) FROM series s "
     "JOIN profile p USING (series_id) WHERE s.category = 'commercial' "
     "GROUP BY s.series_id"))
-expected_commercial = {} if PUBLISH else dict((k, v[0]) for k, v in COMMERCIAL.items())
+expected_commercial = {} if PUBLISH else dict((k, v[0]) for k, v in LOCAL.items())
 extra_profiles = sum(expected_commercial.values())
-extra_params = sum(COMMERCIAL[k][0] * COMMERCIAL[k][1] for k in expected_commercial)
-extra_alias = sum(COMMERCIAL[k][0] * COMMERCIAL[k][2] for k in expected_commercial)
-extra_derived = 3 * extra_profiles
+extra_params = sum(LOCAL[k][0] * LOCAL[k][1] for k in expected_commercial)
+extra_alias = sum(LOCAL[k][0] * LOCAL[k][2] for k in expected_commercial)
+extra_derived = sum(LOCAL[k][0] * LOCAL[k][3] for k in expected_commercial)
 extra_series_issues = 3 * len(expected_commercial)
 incomplete_t = sum(1 for _ in cur.execute(
     "SELECT 1 FROM profile WHERE series_id = 'AM-TES' AND geometry_status <> 'complete'")) \
     if expected_commercial else 0
+cover_total = sum(COVER[k][0] for k in expected_commercial if k in COVER)
+cover_missing_profiles = sum(COVER_MISSING_PROFILES.get(k, 0) for k in expected_commercial)
+blocked_series = len(COVER_BLOCKED & set(expected_commercial))
 
 print(f"== comptages ({'catalogue publiable' if PUBLISH else 'base de travail'}) ==")
 check("profils", cur.execute("SELECT COUNT(*) FROM profile").fetchone()[0], 1792 + extra_profiles)
@@ -72,16 +107,18 @@ check("propriétés dérivées", cur.execute("SELECT COUNT(*) FROM derived_prope
 # La famille SOLID passe de « manque » (blocking) à « partiellement commerciale »
 # (warning) dès qu'une série commerciale la couvre ; la famille T reste bloquante.
 solid_commercial = bool(expected_commercial)
-blocking_exp = 2 - (1 if solid_commercial else 0) + incomplete_t
+# Profils bloqués par un paramètre absent : T commercial + tôles cotées sans rayon.
+missing_profiles = incomplete_t + cover_missing_profiles
+blocking_exp = 2 - (1 if solid_commercial else 0) + missing_profiles + blocked_series
 warning_exp = 23 + (1 if solid_commercial else 0) + extra_series_issues
 check("anomalies", cur.execute("SELECT COUNT(*) FROM catalog_issue").fetchone()[0],
       blocking_exp + warning_exp + 16)
 for sev, exp in (("blocking", blocking_exp), ("warning", warning_exp), ("info", 16)):
     check(f"anomalies {sev}", cur.execute(
         "SELECT COUNT(*) FROM catalog_issue WHERE severity=?", (sev,)).fetchone()[0], exp)
-check("familles", cur.execute("SELECT COUNT(*) FROM family").fetchone()[0], 7)
-check("formes", cur.execute("SELECT COUNT(*) FROM shape").fetchone()[0], 13)
-check("param_def", cur.execute("SELECT COUNT(*) FROM param_def").fetchone()[0], 58)
+check("familles", cur.execute("SELECT COUNT(*) FROM family").fetchone()[0], 8)
+check("formes", cur.execute("SELECT COUNT(*) FROM shape").fetchone()[0], 15)
+check("param_def", cur.execute("SELECT COUNT(*) FROM param_def").fetchone()[0], 67)
 check("normes", cur.execute("SELECT COUNT(*) FROM standard").fetchone()[0], 14)
 check("sources", cur.execute("SELECT COUNT(*) FROM source").fetchone()[0],
       5 + (1 if expected_commercial else 0))
@@ -97,7 +134,8 @@ solid_refs = sum(expected_commercial.get(k, 0) for k in ("AM-RONDS", "AM-CARRES"
 for code, exp, exp_complete in (("I", 39, 39), ("H", 72, 72), ("U", 32, 32), ("L", 81, 81),
                                 ("T", t_refs, 0),
                                 ("HOLLOW", 1506, 1506),
-                                ("SOLID", 62 + solid_refs, 62 + solid_refs)):
+                                ("SOLID", 62 + solid_refs, 62 + solid_refs),
+                                ("COVER", cover_total, 0)):
     total, complete = fam[code]
     check(f"famille {code} total", total, exp)
     check(f"famille {code} complètes", complete, exp_complete)
@@ -109,12 +147,12 @@ for sid, exp in (("IPE", 18), ("IPN", 21), ("HEA", 24), ("HEB", 24), ("HEM", 24)
                  ("SHS-CF", 163), ("RHS-HF", 496), ("RHS-CF", 260), ("CHS-HF", 114),
                  ("CHS-CF", 230), ("FLAT", 62)):
     check(f"série {sid}", series.get(sid), exp)
-for sid, (n, _p, _a) in COMMERCIAL.items():
+for sid, (n, _p, _a, _d) in {**COMMERCIAL, **COVER}.items():
     if not PUBLISH:
         check(f"série commerciale {sid}", series.get(sid), n)
 
 print("\n== statuts ==")
-complete_exp = 1792 + extra_profiles - incomplete_t
+complete_exp = 1792 + extra_profiles - (incomplete_t + cover_total)
 check("complètes", cur.execute(
     "SELECT COUNT(*) FROM profile WHERE geometry_status='complete'").fetchone()[0], complete_exp)
 check("rayons tabulés", cur.execute(
@@ -127,7 +165,7 @@ check("paramètre requis NULL", cur.execute("""
     JOIN profile_param pp ON pp.profile_id = p.profile_id
     JOIN param_def d ON d.shape_id = (SELECT shape_id FROM series s WHERE s.series_id = p.series_id)
                     AND d.param = pp.param
-    WHERE d.required = 1 AND pp.value IS NULL""").fetchone()[0], 2 * incomplete_t)
+    WHERE d.required = 1 AND pp.value IS NULL""").fetchone()[0], 2 * incomplete_t + COVER_MISSING_PARAMS)
 check("paramètres non requis", cur.execute(
     "SELECT COUNT(*) FROM profile_param pp JOIN profile p USING(profile_id) "
     "JOIN series s USING(series_id) JOIN param_def d ON d.shape_id=s.shape_id "
@@ -159,7 +197,7 @@ print("\n== inventaire CSV ==")
 with io.open(DATA / "catalogue_inventory.csv", encoding="utf-8") as fh:
     rows = list(csv.reader(fh))
 check("lignes CSV", len(rows) - 1, 1792 + extra_profiles)
-check("colonnes CSV", len(rows[0]), 29)
+check("colonnes CSV", len(rows[0]), 33)
 check("CSV complet", sum(1 for r in rows[1:] if r[rows[0].index("geometry_status")] == "complete"),
       complete_exp)
 
@@ -193,8 +231,25 @@ check("anomalie LOCAL_ONLY_DATA par série locale", cur.execute(
     "SELECT COUNT(*) FROM catalog_issue WHERE code='LOCAL_ONLY_DATA'").fetchone()[0],
     len(expected_commercial))
 check("T commercial incomplet bloqué", cur.execute(
-    "SELECT COUNT(*) FROM catalog_issue WHERE code='MISSING_PARAMETER'").fetchone()[0],
-    incomplete_t)
+    "SELECT COUNT(*) FROM catalog_issue WHERE code='MISSING_PARAMETER' "
+    "AND ref LIKE 'AM-TES/%'").fetchone()[0], incomplete_t)
+check("tôles sans paramètre requis", cur.execute(
+    "SELECT COUNT(*) FROM catalog_issue WHERE code='MISSING_PARAMETER' "
+    "AND (ref LIKE 'AM-TRAPEZA%' OR ref LIKE 'AM-FREQUENCE%')").fetchone()[0],
+    cover_missing_profiles)
+check("tôles bloquées par leur forme", cur.execute(
+    "SELECT COUNT(*) FROM catalog_issue WHERE code='UNDIMENSIONED_FEATURE'").fetchone()[0],
+    blocked_series)
+check("tôles complètes", cur.execute(
+    "SELECT COUNT(*) FROM profile p JOIN series s USING(series_id) "
+    "WHERE s.family_id='COVER' AND p.geometry_status='complete'").fetchone()[0], 0)
+check("tôles sans rayon inventé", cur.execute(
+    "SELECT COUNT(*) FROM v_profile_geometry g JOIN series s USING(series_id) "
+    "WHERE s.family_id='COVER' AND g.r IS NOT NULL").fetchone()[0], 0)
+check("masses surfaciques publiées", cur.execute(
+    "SELECT COUNT(*) FROM derived_property dp JOIN profile p USING(profile_id) "
+    "JOIN series s USING(series_id) WHERE s.family_id='COVER' "
+    "AND dp.param='mass_area' AND dp.unit='kg/m2'").fetchone()[0], cover_total)
 check("export redistribuable présent", os.path.exists(DATA / "catalogue_inventory_redistributable.csv"),
       bool(expected_commercial))
 if expected_commercial:

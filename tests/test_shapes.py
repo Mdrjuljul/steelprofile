@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.geometry.properties import section_properties  # noqa: E402
+from app.geometry.contour import GeometryError  # noqa: E402
 from app.geometry.shapes import (  # noqa: E402
     angle,
     channel,
@@ -23,7 +24,10 @@ from app.geometry.shapes import (  # noqa: E402
     i_tapered,
     rect_hollow,
     round_bar,
+    sinusoidal_sheet,
     square_bar,
+    trapezoid_angle_deg,
+    trapezoidal_sheet,
 )
 
 
@@ -146,6 +150,47 @@ class TaperedEquivalenceTests(unittest.TestCase):
         tapered = section_properties(i_tapered(*args, 0.0, 0.0, 0.0))
         for name in ("A", "Iy", "Iz", "Iyz", "Wel_y", "Wel_z", "perimeter"):
             self.assertAlmostEqual(getattr(flat_i, name), getattr(tapered, name), places=6, msg=name)
+
+
+class CoverSheetTests(unittest.TestCase):
+    """Tôle trapézoïdale : module d'une onde, plis en arcs vrais, centrage déclaré."""
+
+    def test_module_is_centered_and_closed(self) -> None:
+        pitch, depth, crest, trough = 100.0, 7.5, 55.0, 30.0
+        section = trapezoidal_sheet(pitch, depth, crest, trough, 0.63, 2.0)
+        y0, y1, z0, z1 = section.bounds()
+        self.assertAlmostEqual(y0, -pitch / 2.0, places=9)
+        self.assertAlmostEqual(y1, pitch / 2.0, places=9)
+        self.assertAlmostEqual(z0, -0.63, places=9)
+        self.assertAlmostEqual(z1, depth, places=9)
+
+        primitives = section.outer[0].primitives
+        self.assertEqual(len(primitives), 20)
+        self.assertEqual(sum(1 for p in primitives if type(p).__name__ == "Arc"), 8)
+        # Les deux bords libres sont verticaux et ferment le bandeau.
+        self.assertAlmostEqual(section.perimeter(), 212.997943489613, places=6)
+
+    def test_area_and_derived_angle(self) -> None:
+        section = trapezoidal_sheet(100.0, 7.5, 55.0, 30.0, 0.63, 2.0)
+        properties = section_properties(section)
+        self.assertAlmostEqual(properties.A, 66.6974521992281, places=6)
+        # Aire par pas -> masse surfacique à 7,85 kg/dm3 (5,33 publiés).
+        self.assertAlmostEqual(7.85 * properties.A / 100.0, 5.235749997639406, places=9)
+        self.assertAlmostEqual(trapezoid_angle_deg(100.0, 7.5, 55.0, 30.0), 45.0, places=9)
+
+    def test_bend_radius_must_exceed_thickness(self) -> None:
+        with self.assertRaises(GeometryError):
+            trapezoidal_sheet(100.0, 7.5, 55.0, 30.0, 2.0, 2.0)
+
+    def test_flat_left_after_bends_must_be_positive(self) -> None:
+        # r = 20 consomme tout le plateau haut (crest = 3) : les congés se chevauchent.
+        with self.assertRaises(GeometryError):
+            trapezoidal_sheet(100.0, 7.5, 3.0, 30.0, 0.63, 20.0)
+
+    def test_sinusoid_is_refused_explicitly(self) -> None:
+        with self.assertRaises(GeometryError) as caught:
+            sinusoidal_sheet(76.0, 18.0, 0.63)
+        self.assertIn("sinusoïdale", str(caught.exception))
 
 
 if __name__ == "__main__":
