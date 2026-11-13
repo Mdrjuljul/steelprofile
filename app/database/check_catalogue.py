@@ -96,6 +96,7 @@ incomplete_t = sum(1 for _ in cur.execute(
 cover_total = sum(COVER[k][0] for k in expected_commercial if k in COVER)
 cover_missing_profiles = sum(COVER_MISSING_PROFILES.get(k, 0) for k in expected_commercial)
 blocked_series = len(COVER_BLOCKED & set(expected_commercial))
+cover_missing_params = COVER_MISSING_PARAMS if cover_total else 0
 
 print(f"== comptages ({'catalogue publiable' if PUBLISH else 'base de travail'}) ==")
 check("profils", cur.execute("SELECT COUNT(*) FROM profile").fetchone()[0], 1792 + extra_profiles)
@@ -165,7 +166,7 @@ check("paramètre requis NULL", cur.execute("""
     JOIN profile_param pp ON pp.profile_id = p.profile_id
     JOIN param_def d ON d.shape_id = (SELECT shape_id FROM series s WHERE s.series_id = p.series_id)
                     AND d.param = pp.param
-    WHERE d.required = 1 AND pp.value IS NULL""").fetchone()[0], 2 * incomplete_t + COVER_MISSING_PARAMS)
+    WHERE d.required = 1 AND pp.value IS NULL""").fetchone()[0], 2 * incomplete_t + cover_missing_params)
 check("paramètres non requis", cur.execute(
     "SELECT COUNT(*) FROM profile_param pp JOIN profile p USING(profile_id) "
     "JOIN series s USING(series_id) JOIN param_def d ON d.shape_id=s.shape_id "
