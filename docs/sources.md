@@ -350,8 +350,9 @@ Aucune valeur n'a été recopiée à la main ni lue par OCR :
 5. Les utilitaires (`extract_pdf.py`, `am_parse.py`, `am_extract.py`,
    `am_staging.py`) sont conservés dans `data/staging/tools/`, avec le PDF
    attendu à cet emplacement et son empreinte vérifiée. Relancés, ils
-   reproduisent les 15 fichiers `AM-*` **à l'octet près** ; ils ne sont jamais
-   distribués (voir `data/staging/tools/README.md`).
+   reproduisent les 15 fichiers `AM-*` **à l'octet près**. Leur **code** est
+   distribué sous MIT ; le PDF et les fichiers produits ne le sont pas (voir
+   `data/staging/tools/README.md`).
 
 ### Double recoupement des lignes
 

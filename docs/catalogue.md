@@ -74,7 +74,7 @@ Fichiers produits :
 | `data/catalogue_stats.json` | comptages et anomalies, source des chiffres de ce rapport |
 | `data/staging/README.md` | contrat d'import des séries locales (non redistribuées) |
 | `data/staging/AM-*` | dépôt local du catalogue commercial (jamais livré) |
-| `data/staging/tools/` | utilitaires d'extraction du catalogue commercial (jamais livrés) |
+| `data/staging/tools/` | utilitaires d'extraction du catalogue commercial (code MIT distribué, données produites jamais livrées) |
 | `app/database/schema.sql` | schéma SQL commenté |
 | `app/database/import_data.py` | import reproductible (bibliothèque standard seule) |
 | `app/database/check_catalogue.py` | contrôle de cohérence, modes travail et `--publish` |

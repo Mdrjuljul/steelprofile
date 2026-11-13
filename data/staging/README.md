@@ -15,9 +15,10 @@ déposées ici, avec leurs fichiers `generated/properties/`. Une base construite
 avec ce dépôt peuplé n'est **pas** redistribuable ; voir la dernière section.
 
 Les utilitaires qui régénèrent ce dépôt depuis le PDF sont dans
-`data/staging/tools/` (voir son `README.md`) ; ils ne sont pas distribués non
-plus. Le PDF source doit se trouver dans `data/sources/` avec l'empreinte
-SHA-256 documentée dans `docs/sources.md` §12.
+`data/staging/tools/` (voir son `README.md`) : leur **code** est distribué sous
+MIT, mais le PDF source et les fichiers `AM-*` produits restent locaux. Le PDF
+doit se trouver dans `data/sources/` avec l'empreinte SHA-256 documentée dans
+`docs/sources.md` §12.
 
 ## Contrat de fichier
 

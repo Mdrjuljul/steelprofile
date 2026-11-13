@@ -1,8 +1,9 @@
 # `data/staging/tools/` — utilitaires d'extraction ArcelorMittal 2020
 
 Ces scripts rejouent l'extraction du catalogue ArcelorMittal 2020 vers le dépôt
-local `data/staging/AM-*`. Ils font partie du répertoire `data/staging/`, donc
-**ils ne sont jamais distribués** avec le projet.
+local `data/staging/AM-*`. **Le code est distribué** avec le projet sous licence
+MIT, mais **ni le PDF ni les fichiers `AM-*` qu'il produit** ne le sont : eux
+restent locaux (`data/staging/`, `data/sources/*.pdf`).
 
 | Fichier | Rôle |
 |---|---|
